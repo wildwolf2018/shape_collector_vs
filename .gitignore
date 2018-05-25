@@ -8,3 +8,8 @@
 *.obj
 *.mp3
 *.mp4
+*.ilk
+*.tlog
+*.lastbuildstate
+*.idb
+
