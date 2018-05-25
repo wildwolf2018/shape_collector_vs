@@ -1,0 +1,13 @@
+#version 400 
+
+in float transp;
+
+out vec4 color;
+
+uniform sampler2D sprite;
+
+void main() 
+{ 
+	color = texture(sprite, gl_PointCoord);
+	color.a *= transp; 
+}
