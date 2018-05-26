@@ -17,6 +17,7 @@
 #include "wall.h"
 #include "shadow.h"
 #include "font.h"
+#include "particle.h"
 #include <ft2build.h>
 #include FT_FREETYPE_H
 #include <irrKlang.h>
@@ -39,7 +40,7 @@ const int WIDTH = 1200;
 const int HEIGHT = 700;
 
 // Camera
-glm::vec3 cameraPos = glm::vec3(0.0f, 0.0f, 4.0f);
+glm::vec3 cameraPos = glm::vec3(0.0f, 0.0f, 30.0f);
 glm::vec3 cameraFront = glm::vec3(0.0f, 0.0f, -1.0f);
 glm::vec3 cameraUp = glm::vec3(0.0f, 1.0f, 0.0f);
 /* Yaw is initialized to -90.0 degrees since a yaw of 0.0 results in a direction vector pointing to the right
@@ -55,21 +56,7 @@ bool keys[1024];
 GLfloat deltaTime = 0.0f;	// Time between current frame and last frame
 GLfloat lastFrame = 0.0f;  	// Time of last frame
 std::chrono::time_point<std::chrono::steady_clock> start_ticks, end_ticks;
-
-struct vec3 {
-	float  x;
-	float  y;
-	float  z;
-};
-struct Particle {
-	vec3 position;
-	vec3 velocity;
-	float startTime;
-	float lifeTime;
-};
 GLfloat timer = 1000.0f;
-GLboolean isAnimPlaying = false;
-float particleSpeed = 0.0f;
 GLboolean showObj = true;
 
 int main()
@@ -113,21 +100,23 @@ int main()
 
 	//Create projection matrix and pass it to the shader
 	glm::mat4 projection;
-	projection = glm::perspective(45.0f, (GLfloat)WIDTH / (GLfloat)HEIGHT, 0.1f, 100.0f);
+	projection = glm::perspective(45.0f, (GLfloat)WIDTH / (GLfloat)HEIGHT, 0.1f, 500.0f);
 	glm::mat4 model, view;
 	glm::vec3 shapeCenterPos = glm::vec3(0.0f, 0.0f, 0.0f);
 	model = glm::translate(model, shapeCenterPos);
 	shapeCenterPos = glm::vec3(model * glm::vec4(shapeCenterPos, 1.0f));
+	model = glm::scale(model, glm::vec3(5.0f, 5.0f, 5.0f));
+	//shapeCenterPos = glm::vec3(model * glm::vec4(shapeCenterPos, 1.0f));
 	//model = glm::rotate(model, 100.0f, glm::vec3(1.0f, 0.0f, 0.0f));
 	model = glm::scale(model, glm::vec3(1.0f, 1.0f, 1.0f));
 
 	//Place floor in the world
 	glm::mat4 modelFloorMatrix;
-	modelFloorMatrix = glm::translate(modelFloorMatrix, glm::vec3(0.0, -10.0f, 0.0f));
-	modelFloorMatrix = glm::scale(modelFloorMatrix, glm::vec3(3.0, 3.0, 12.0));
+	modelFloorMatrix = glm::translate(modelFloorMatrix, glm::vec3(0.0, -15.0f, 0.0f));
+	modelFloorMatrix = glm::scale(modelFloorMatrix, glm::vec3(15.0, 3.0, 60.0));
 	modelFloorMatrix = glm::rotate(modelFloorMatrix, glm::radians(-90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
 
-	GLfloat near_plane = 1.0f, far_plane = 100.0f;
+	GLfloat near_plane = 1.0f, far_plane = 500.0f;
 	glm::mat4 lightProjection = glm::ortho(-50.0f, 50.0f, -50.0f, 50.0f, near_plane, far_plane);
 	glm::mat4 lightView = glm::lookAt(glm::vec3(-10.0f, 10.0f, 10.0f), glm::vec3(0.0f), glm::vec3(1.0));//vec3(14.64f, 20.0f, 10.0f),
 	glm::mat4 lightSpaceMatrix = lightProjection * lightView;
@@ -137,89 +126,23 @@ int main()
 	std::shared_ptr<Shader> depthMapShader = ResourceManager::GetShader("shadow_map");
 	
 	//Particles
-	const int NUM_PARTICLES = 100;
-	GLuint vao = 0, vbo = 0;
-	glGenVertexArrays(1, &vao);
-	glGenBuffers(1, &vbo);
-	glBindVertexArray(vao);
-	glBindBuffer(GL_ARRAY_BUFFER, vbo);
-	glBufferData(GL_ARRAY_BUFFER, NUM_PARTICLES * sizeof(Particle), NULL, GL_STATIC_DRAW);
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(GLfloat), (GLvoid*)0);
-	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(GLfloat), (GLvoid*)(NUM_PARTICLES * 3 * sizeof(GLfloat)));
-	glVertexAttribPointer(2, 1, GL_FLOAT, GL_FALSE, sizeof(GLfloat), (GLvoid*)(NUM_PARTICLES * 6 * sizeof(GLfloat)));
-	glVertexAttribPointer(3, 1, GL_FLOAT, GL_FALSE, sizeof(GLfloat), (GLvoid*)(NUM_PARTICLES * 7 * sizeof(GLfloat)));
-	glEnableVertexAttribArray(0);
-	glEnableVertexAttribArray(1);
-	glEnableVertexAttribArray(2);
-	glEnableVertexAttribArray(3);
-	glBindBuffer(GL_ARRAY_BUFFER, 0);
-	glBindVertexArray(0);
+	int numberOfParticles = 100;
+	Particle explosion{ "vshader.txt", "fshader.txt", "red_particle.png", numberOfParticles};
 
-	float time = 0.0f; // animation startTime
-	float rate = 0.00075f; // rate at which particles are spawned
-	double theta, phi; //spherical coordinates of particle
-	float PI = 3.141592654f; // constant value pie
-	std::default_random_engine e; // random number engine
-	unsigned seedValue = 0; // random number engine seed
-
-							//Particle data offsets
-	unsigned vertexOffset = 0;
-	unsigned velocityOffset = NUM_PARTICLES * 3;
-	unsigned startTimeOffset = NUM_PARTICLES * 6;
-	unsigned lifeTimeOffset = NUM_PARTICLES * 7;
-
-	const int PARTICLE_DATA_SIZE = NUM_PARTICLES * 8;
-	float *data = new GLfloat[PARTICLE_DATA_SIZE];// array to store particles' data 
-	unsigned offset = 0;
-	for (unsigned i = 0; i < NUM_PARTICLES; i++) {
-		//Store position coordinates of particle
-		data[vertexOffset++] = 0.0f;
-		data[vertexOffset++] = 0.0f;
-		data[vertexOffset++] = 0.0f;
-
-		//Calculate random velocity of particle
-		seedValue = std::chrono::steady_clock::now().time_since_epoch().count() + offset;
-		e.seed(seedValue);
-		offset += 10;
-		std::uniform_real_distribution<double> distR1(0, 2 * PI);
-		theta = static_cast<float> (distR1(e));
-		seedValue = std::chrono::steady_clock::now().time_since_epoch().count() + offset;
-		e.seed(seedValue);
-		std::uniform_real_distribution<double> distR2(0, PI);
-		phi = static_cast<float> (distR2(e));
-		data[velocityOffset++] = std::sin(phi) * std::cos(theta);// velocity x
-		data[velocityOffset++] = std::cos(phi);// velocity y
-		data[velocityOffset++] = std::sin(phi) * std::sin(theta);// velocity z
-
-		//Calculate startTime of particle
-		data[startTimeOffset++] = time;
-		time += rate;
-
-		//Store lifeTime of particle
-		data[lifeTimeOffset++] = 2.0f;
-		offset += 10;
-	}
-	glBindBuffer(GL_ARRAY_BUFFER, vbo);
-	glBufferSubData(GL_ARRAY_BUFFER, 0, PARTICLE_DATA_SIZE * sizeof(GLfloat), data);
-	glBindBuffer(GL_ARRAY_BUFFER, 0);
-
-	Texture2D particleTexture = ResourceManager::LoadTexture("red_particle.png", false, "particle");
-	std::shared_ptr<Shader> particleShaderObj = ResourceManager::LoadShader("vshader.txt", "fshader.txt", "particleShader");
-
-	bool animSstart = false;
-	float deltaT = 0.0f;
+	Texture2D particleTexture = ResourceManager::GetTexture("particle");
+	std::shared_ptr<Shader> particleShaderObj = ResourceManager::GetShader("particleShader");
 
 	//Font
 	Font messageText("STENCIL.ttf");
 	ISoundEngine *SoundEngine = createIrrKlangDevice();
-	SoundEngine -> play2D("intro.mp3", GL_TRUE);
+	//SoundEngine -> play2D("intro.mp3", GL_TRUE);
 	while (!glfwWindowShouldClose(window)) {
 		glfwPollEvents();
 		do_movement();
-		if (isAnimPlaying == false && testCollision(cameraPos, shapeCenterPos)) {
+		if (explosion.isAnimPlaying == false && testCollision(cameraPos, shapeCenterPos)) {
 			timer = 0.0f;
-			particleSpeed = 0.0f;
-			animSstart = true;
+			explosion.particleSpeed = 0.0f;
+			explosion.animStart = true;
 			//Start the game clcok
 			start_ticks = std::chrono::steady_clock::now();
 			showObj = false;
@@ -267,39 +190,15 @@ int main()
 		// Send uniforms data to shader
 		if (timer <= 2.0f) {
 			particleShaderObj->Use();
-			glUniformMatrix4fv(glGetUniformLocation(particleShaderObj->ProgramID, "projection"), 1, GL_FALSE, glm::value_ptr(projection));
-			glUniform1f(glGetUniformLocation(particleShaderObj->ProgramID, "time"), timer);
-			particleSpeed += 2.0f * deltaTime;
-			glUniform1f(glGetUniformLocation(particleShaderObj->ProgramID, "speed"), particleSpeed);
-			particleTexture.Bind();
-			glUniform1i(glGetUniformLocation(particleShaderObj->ProgramID, "sprite"), 0);
-			if (animSstart) {
-				glUniform1f(glGetUniformLocation(particleShaderObj->ProgramID, "animationStartTime"), timer);
-				animSstart = false;
-			}
-			glUniformMatrix4fv(glGetUniformLocation(particleShaderObj->ProgramID, "viewMatrix"), 1, GL_FALSE, glm::value_ptr(view));
-
-			glEnable(GL_PROGRAM_POINT_SIZE);
-			glDisable(GL_DEPTH_TEST);
-			glEnable(GL_BLEND);
-			glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-
-			//Draw particle explosion
-			glBindVertexArray(vao);
-			glDrawArrays(GL_POINTS, 0, 100);
-			glBindVertexArray(0);
-			glDisable(GL_PROGRAM_POINT_SIZE);
-			glEnable(GL_DEPTH_TEST);
-			glDisable(GL_BLEND);
-
+			explosion.setUniforms(projection, view, particleShaderObj, timer, deltaTime);
+			explosion.drawParticle();
 			std::cout << "total time elapsed = " << timer << std::endl;
-			isAnimPlaying = true;
+			explosion.isAnimPlaying = true;
 		}
 
 		// Calculate deltaTime for next frame
 		end_ticks = std::chrono::steady_clock::now();
 		std::chrono::duration<double> delta = end_ticks - start_ticks;
-		deltaT = delta.count();
 		timer += delta.count();
 
 		//Display collision message
@@ -322,7 +221,7 @@ int main()
 void do_movement()
 {
 	// Camera controls
-	GLfloat cameraSpeed = 5.0f * deltaTime;
+	GLfloat cameraSpeed = 10.0f * deltaTime;
 	if (keys[GLFW_KEY_W])
 		cameraPos += cameraSpeed * cameraFront;
 	if (keys[GLFW_KEY_S])
@@ -331,6 +230,7 @@ void do_movement()
 		cameraPos -= glm::normalize(glm::cross(cameraFront, cameraUp)) * cameraSpeed;
 	if (keys[GLFW_KEY_D])
 		cameraPos += glm::normalize(glm::cross(cameraFront, cameraUp)) * cameraSpeed;
+	cameraFront.y = 0.0f;
 	//std::cout << "x = " << cameraPos.x << "  y = " << cameraPos.y << "  z = " << cameraPos.z << std::endl;
 }
 
@@ -396,7 +296,7 @@ void mouse_cursor_reset(GLFWwindow* window, int entered)
 GLboolean testCollision(glm::vec3 cameraPosition, glm::vec3 shapeCenterPos)
 {
 	constexpr float PLAYER_RADIUS = 0.1f;
-	constexpr float OBJ_RADIUS = 1.5f;
+	constexpr float OBJ_RADIUS = 3.5f;
 
 	glm::vec3 s = shapeCenterPos - cameraPos;
 	float distanceSquared = glm::dot(s, s);
