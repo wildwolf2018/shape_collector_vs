@@ -52,7 +52,7 @@ void Wall::setUniforms(std::shared_ptr<Shader>& shaderObj, glm::vec3& cameraPos)
 	GLuint lighSpecLoc = glGetUniformLocation(programID, "light.specular");
 	GLuint viewPositionLoc = glGetUniformLocation(programID, "viewPos");
 	glUniform3f(viewPositionLoc, cameraPos.x, cameraPos.y, cameraPos.z);
-	glUniform3f(lighAmbLoc, 0.2f, 0.2f, 0.2f);
+	glUniform3f(lighAmbLoc, 0.5f, 0.5f, 0.5f);
 	glUniform3f(lighDiffuseLoc, 1.0f, 1.0f, 1.0f);
 	glUniform3f(lighSpecLoc, 1.0f, 1.0, 1.0f);
 	//Set Material properties uniforms
