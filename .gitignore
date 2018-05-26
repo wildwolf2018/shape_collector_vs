@@ -13,3 +13,8 @@
 *.lastbuildstate
 *.idb
 *.user
+*.log
+*.pdb
+*.idb
+*.xml
+
