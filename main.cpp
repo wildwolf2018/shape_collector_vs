@@ -55,8 +55,9 @@ bool keys[1024];
 // Deltatime
 GLfloat deltaTime = 0.0f;	// Time between current frame and last frame
 GLfloat lastFrame = 0.0f;  	// Time of last frame
-std::chrono::time_point<std::chrono::steady_clock> start_ticks, end_ticks;
+std::chrono::time_point<std::chrono::steady_clock> start_ticks, end_ticks, start_ticks2, end_ticks2;
 GLfloat timer = 1000.0f;
+GLfloat timer2 = 0.0f;
 GLboolean showObj = true;
 
 int main()
@@ -121,7 +122,9 @@ int main()
 	glm::mat4 lightView = glm::lookAt(glm::vec3(-10.0f, 10.0f, 10.0f), glm::vec3(0.0f), glm::vec3(1.0));//vec3(14.64f, 20.0f, 10.0f),
 	glm::mat4 lightSpaceMatrix = lightProjection * lightView;
 
-	Model _model("C:\\Users\\Teboho\\Documents\\Visual Studio 2015\\Projects\\SOILTest\\OpenGlLTest\\cube2.obj");
+	Model* _model = new Model[1];
+	_model->shapeType = Shapes3D::CUBE;
+	_model->loadModel("..\\OpenGlLTest\\cube2.obj");
 	std::shared_ptr<Shader> shaderObject = ResourceManager::GetShader("model");
 	std::shared_ptr<Shader> depthMapShader = ResourceManager::GetShader("shadow_map");
 	
@@ -135,7 +138,12 @@ int main()
 	//Font
 	Font messageText("STENCIL.ttf");
 	ISoundEngine *SoundEngine = createIrrKlangDevice();
-	//SoundEngine -> play2D("intro.mp3", GL_TRUE);
+	//SoundEngine -> play2D("haunted-forest.mp3", GL_TRUE);
+	start_ticks2 = std::chrono::steady_clock::now();
+	float futureTime = 0.0f, futureTimer2 = 0.0f;
+	bool changeFutureTime = true;
+	bool drawObj = false;
+	GLuint blinkCount = 0;
 	while (!glfwWindowShouldClose(window)) {
 		glfwPollEvents();
 		do_movement();
@@ -143,7 +151,7 @@ int main()
 			timer = 0.0f;
 			explosion.particleSpeed = 0.0f;
 			explosion.animStart = true;
-			//Start the game clcok
+			//Start the game clock
 			start_ticks = std::chrono::steady_clock::now();
 			showObj = false;
 		}
@@ -155,20 +163,34 @@ int main()
 		floor.draw();
 		model = glm::rotate(model, 1.0f * deltaTime, glm::vec3(1.0f, 1.0f, 1.0f));
 		glUniformMatrix4fv(glGetUniformLocation(depthMapShader->ProgramID, "model"), 1, GL_FALSE, glm::value_ptr(model));
-		if(showObj)
-		_model.Draw();
+		if (changeFutureTime) {
+			futureTime = timer2 + 1.0f;
+			futureTimer2 = timer2 + 3.0f;
+			changeFutureTime = false;
+		}
+		if (showObj && timer2 <= 1.0f)
+		{
+			_model->Draw();
+			//changeFutureTime = true;
+		}
+		if (timer2 >= 1.1f && blinkCount < 20) {
+		//	start_ticks2 = std::chrono::steady_clock::now();
+			timer2 = 0.0f;
+			++blinkCount;
+			//std::cout << " Hello\n";
+		}
 		glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
 		//Calculate deltaTime
 		GLfloat currentFrame = glfwGetTime();
 		deltaTime = currentFrame - lastFrame;
 		lastFrame = currentFrame;
-	
+
 		//Clear color and depth buffers
 		glViewport(0, 0, WIDTH, HEIGHT);
 		glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-		
+
 		////Draw the objects in the scene as normal
 		glDisable(GL_CULL_FACE);
 		shaderObject->Use();
@@ -179,9 +201,10 @@ int main()
 		shaderObject->setMatrix(lightSpaceMatrix, "lightSpaceMatrix");
 		glBindTexture(GL_TEXTURE_2D, shadowObj.depthMap);
 		glUniform1i(glGetUniformLocation(shaderObject->ProgramID, "shadowMap"), 0);
-		if (showObj) {
-			_model.setLightUniforms(shaderObject, cameraPos);
-			_model.Draw();
+		
+		if (showObj && timer2 <= 1.0f) {
+			_model->setLightUniforms(shaderObject, cameraPos);
+			_model->Draw();
 		}
 		shaderObject->setMatrix(modelFloorMatrix, "model");
 		floor.setUniforms(shaderObject, cameraPos);
@@ -192,14 +215,17 @@ int main()
 			particleShaderObj->Use();
 			explosion.setUniforms(projection, view, particleShaderObj, timer, deltaTime);
 			explosion.drawParticle();
-			std::cout << "total time elapsed = " << timer << std::endl;
+			//std::cout << "total time elapsed = " << timer << std::endl;
 			explosion.isAnimPlaying = true;
 		}
 
 		// Calculate deltaTime for next frame
-		end_ticks = std::chrono::steady_clock::now();
-		std::chrono::duration<double> delta = end_ticks - start_ticks;
-		timer += delta.count();
+		if (timer <= 2.5f) {
+			end_ticks = std::chrono::steady_clock::now();
+			std::chrono::duration<double> delta = end_ticks - start_ticks;
+			timer += delta.count();
+			start_ticks = end_ticks;
+		}
 
 		//Display collision message
 		if (timer >= 1.5f && timer <= 2.0f) {
@@ -211,7 +237,12 @@ int main()
 		}
 
 		// Use end_ticks as the new begin_ticks for next frame
-		start_ticks = end_ticks;
+	//	start_ticks = end_ticks;
+		end_ticks2 = std::chrono::steady_clock::now();
+		std::chrono::duration<double> delta2 = end_ticks2 - start_ticks2;
+		timer2 += delta2.count();
+		start_ticks2 = end_ticks2;
+	//	std::cout << "total time elapsed = " << timer2 << std::endl;
 		glfwSwapBuffers(window);
 	}
 	glfwTerminate();
@@ -221,7 +252,7 @@ int main()
 void do_movement()
 {
 	// Camera controls
-	GLfloat cameraSpeed = 10.0f * deltaTime;
+	GLfloat cameraSpeed = 20.0f * deltaTime;
 	if (keys[GLFW_KEY_W])
 		cameraPos += cameraSpeed * cameraFront;
 	if (keys[GLFW_KEY_S])
@@ -230,7 +261,7 @@ void do_movement()
 		cameraPos -= glm::normalize(glm::cross(cameraFront, cameraUp)) * cameraSpeed;
 	if (keys[GLFW_KEY_D])
 		cameraPos += glm::normalize(glm::cross(cameraFront, cameraUp)) * cameraSpeed;
-	cameraFront.y = 0.0f;
+	//cameraFront.y = 0.0f;
 	//std::cout << "x = " << cameraPos.x << "  y = " << cameraPos.y << "  z = " << cameraPos.z << std::endl;
 }
 

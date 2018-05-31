@@ -1,6 +1,12 @@
 #include "model.h"
 #include <iostream>
 
+Model::Model(GLchar* path, Shapes3D shapeType)
+{
+	this->loadModel(path);
+	this->shapeType = shapeType;
+}
+
 void Model::Draw()
 { 
 	for (GLuint i = 0; i < this->meshes.size(); i++)
