@@ -8,7 +8,7 @@
 #include <list>
 #include "model.h"
 
-struct PostionInfo {
+struct PositionInfo {
 	glm::vec3 worldPosition;
 	Model* activeObject;
 };
@@ -16,14 +16,15 @@ struct PostionInfo {
 class LevelManager {
 public:
 	LevelManager();
-	std::map<GLuint, PostionInfo> spawnPostions;
+	std::map<GLuint, PositionInfo> spawnPostions;
+	std::vector<GLuint>activeShapes;
 	Model* modelShapes;
+	std::map<Shapes3D, glm::mat4> shapeModelMatrices;
 private:
 	const GLuint NUM_SHAPES = 30;
 	int selectedShape;
 	unsigned int objectAnimStates = 0x00000000;
 	unsigned int availablePositions;
-	std::list<GLuint>activeShapes;
 	void createShapes();
 	void initSpawnPositions();
 	void firstSpawnShapes();

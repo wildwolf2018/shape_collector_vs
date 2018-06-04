@@ -1,11 +1,13 @@
 #include "level_manager.h"
 #include "utilities.h"
+#include <iostream>
 #include <random>
 #include <chrono>
 #include <algorithm>
 
 LevelManager::LevelManager()
 {
+	activeShapes.reserve(6);
 	createShapes();
 	initSpawnPositions();
 	firstSpawnShapes();
@@ -15,10 +17,16 @@ LevelManager::LevelManager()
 void LevelManager::createShapes()
 {
 	constexpr GLuint TOTAL_TYPES = EnumToInt(Shapes3D::T_PYRAMID) + 1;
-	const GLchar* shapes[TOTAL_TYPES] = { ".\\OpenGlLTest\\cone2.obj", ".\\OpenGlLTest\\cube2.obj",
-		".\\OpenGlLTest\\cylinder2.obj", ".\\OpenGlLTest\\ellipsoid2.obj", ".\\OpenGlLTest\\hemisphere2.obj",
-		".\\OpenGlLTest\\rectangular_prism2.obj", ".\\OpenGlLTest\\rectangular_pyramid2.obj", ".\\OpenGlLTest\\sphere2.obj",
-		".\\OpenGlLTest\\triangular_prism2.obj",  ".\\OpenGlLTest\\triangluar_pyramid2.obj" };
+	const GLchar* shapes[TOTAL_TYPES] = { "C:\\Users\\Teboho\\Documents\\Projects\\ShapeCollecor_VS\\SOILTest\\OpenGlLTest\\cone2.obj", 
+		"C:\\Users\\Teboho\\Documents\\Projects\\ShapeCollecor_VS\\SOILTest\\OpenGlLTest\\cube2.obj",
+		"C:\\Users\\Teboho\\Documents\\Projects\\ShapeCollecor_VS\\SOILTest\\OpenGlLTest\\cylinder2.obj", 
+		"C:\\Users\\Teboho\\Documents\\Projects\\ShapeCollecor_VS\\SOILTest\\OpenGlLTest\\ellipsoid2.obj", 
+		"C:\\Users\\Teboho\\Documents\\Projects\\ShapeCollecor_VS\\SOILTest\\OpenGlLTest\\hemisphere2.obj",
+		"C:\\Users\\Teboho\\Documents\\Projects\\ShapeCollecor_VS\\SOILTest\\OpenGlLTest\\rectangular_prism2.obj", 
+		"C:\\Users\\Teboho\\Documents\\Projects\\ShapeCollecor_VS\\SOILTest\\OpenGlLTest\\rectangular_pyramid2.obj", 
+		"C:\\Users\\Teboho\\Documents\\Projects\\ShapeCollecor_VS\\SOILTest\\OpenGlLTest\\sphere2.obj",
+		"C:\\Users\\Teboho\\Documents\\Projects\\ShapeCollecor_VS\\SOILTest\\OpenGlLTest\\triangular_prism2.obj",  
+		"C:\\Users\\Teboho\\Documents\\Projects\\ShapeCollecor_VS\\SOILTest\\OpenGlLTest\\triangular_pyramid2.obj"};
 	modelShapes = new Model[NUM_SHAPES];
 	GLuint index = 0;
 	for (GLuint i = EnumToInt(Shapes3D::CONE); i < TOTAL_TYPES; ++i) {
@@ -26,6 +34,7 @@ void LevelManager::createShapes()
 			modelShapes[index].shapeType = static_cast<Shapes3D>(i);
 			modelShapes[index].loadModel(shapes[i]);
 			++index;
+		//	std::cout << "index = " << index << std::endl;
 		}
 	}
 }
@@ -33,25 +42,25 @@ void LevelManager::createShapes()
 void LevelManager::initSpawnPositions()
 {
 	//Front Row
-	PostionInfo p0 = { glm::vec3(-100.0f, 0.0f, -100.0f), nullptr };
+	PositionInfo p0 = { glm::vec3(-100.0f, 0.0f, -100.0f), nullptr };
 	spawnPostions.insert(std::make_pair(0, p0));
-	PostionInfo p1 = { glm::vec3(0.0f, 0.0f, -100.0f), nullptr };
+	PositionInfo p1 = { glm::vec3(0.0f, 0.0f, -100.0f), nullptr };
 	spawnPostions.insert(std::make_pair(1, p1));
-	PostionInfo p2 = { glm::vec3(100.0f, 0.0f, -100.0f), nullptr };
+	PositionInfo p2 = { glm::vec3(100.0f, 0.0f, -100.0f), nullptr };
 	spawnPostions.insert(std::make_pair(2, p2));
 	//Middel Row
-	PostionInfo p3 = { glm::vec3(100.0f, 0.0f, 0.0f), nullptr };
+	PositionInfo p3 = { glm::vec3(-100.0f, 0.0f, 0.0f), nullptr };
 	spawnPostions.insert(std::make_pair(3, p3));
-	PostionInfo p4 = { glm::vec3(0.0f, 0.0f, 0.0f), nullptr };
+	PositionInfo p4 = { glm::vec3(0.0f, 0.0f, 0.0f), nullptr };
 	spawnPostions.insert(std::make_pair(4, p4));
-	PostionInfo p5 = { glm::vec3(100.0f, 0.0f, 0.0f), nullptr };
+	PositionInfo p5 = { glm::vec3(100.0f, 0.0f, 0.0f), nullptr };
 	spawnPostions.insert(std::make_pair(5, p5));
 	//Back Row
-	PostionInfo p6 = { glm::vec3(-100.0f, 0.0f, 100.0f), nullptr };
+	PositionInfo p6 = { glm::vec3(-100.0f, 0.0f, 100.0f), nullptr };
 	spawnPostions.insert(std::make_pair(6, p6));
-	PostionInfo p7 = { glm::vec3(0.0f, 0.0f, 100.0f), nullptr };
+	PositionInfo p7 = { glm::vec3(0.0f, 0.0f, 100.0f), nullptr };
 	spawnPostions.insert(std::make_pair(7, p7));
-	PostionInfo p8 = { glm::vec3(100.0f, 0.0f, 100.0f), nullptr };
+	PositionInfo p8 = { glm::vec3(100.0f, 0.0f, 100.0f), nullptr };
 	spawnPostions.insert(std::make_pair(8, p8));
 }
 
@@ -62,16 +71,20 @@ int LevelManager::randomSelection(int min, int max)
 	//random number engine seed
 	unsigned int seedValue = std::chrono::steady_clock::now().time_since_epoch().count();
 	e.seed(seedValue);
-	std::uniform_int_distribution<int> distr(0, 9);
+	std::uniform_int_distribution<int> distr(min, max);
 	return distr(e);
 }
 
 GLuint LevelManager::findSpawnPositions()
 {
 	GLuint positionIndex;
-	do {
+	while (true) {
 		positionIndex = randomSelection(0, 8);
-	} while (spawnPostions[positionIndex].activeObject != nullptr);
+		if (spawnPostions[positionIndex].activeObject == nullptr) {
+			printf("POS = %d ", positionIndex);
+			break;
+		}
+	}
 	return positionIndex;
 }
 
@@ -85,17 +98,20 @@ void LevelManager::firstSpawnShapes()
 	positionIndex = findSpawnPositions();
 	int index = selectedShape * STRIDE;
 	spawnPostions[positionIndex].activeObject = (modelShapes + index);
-	activeShapes.push_back(index);
+	activeShapes.push_back(positionIndex);
+	printf("shape = %d , pos = %d\n", spawnPostions[positionIndex].activeObject->shapeType, positionIndex);
 	//Shape 2
 	positionIndex = findSpawnPositions();
 	index = selectedShape * STRIDE + 1;
 	spawnPostions[positionIndex].activeObject = (modelShapes + index);
-	activeShapes.push_back(index);
+	activeShapes.push_back(positionIndex);
+	printf("shape = %d ,  pos = %d\n", spawnPostions[positionIndex].activeObject->shapeType, positionIndex);
 	//Shape 3
 	positionIndex = findSpawnPositions();
 	index = selectedShape * STRIDE + 2;
 	spawnPostions[positionIndex].activeObject = (modelShapes + index);
-	activeShapes.push_back(index);
+	activeShapes.push_back(positionIndex);
+	printf("shape = %d ,  pos = %d\n", spawnPostions[positionIndex].activeObject->shapeType, positionIndex);
 }
 
 void LevelManager::secondSpawnShapes()
@@ -105,17 +121,32 @@ void LevelManager::secondSpawnShapes()
 	int randomSelectedShape = randomSelection(0, 29);
 	GLuint positionIndex = findSpawnPositions();
 	spawnPostions[positionIndex].activeObject = &modelShapes[randomSelectedShape];
-	activeShapes.push_back(randomSelectedShape);
+	activeShapes.push_back(positionIndex);
+	printf("shape = %d ,  pos = %d\n", spawnPostions[positionIndex].activeObject->shapeType, positionIndex);
 	//Shape 5
 	randomSelectedShape = randomSelection(0, 29);
 	positionIndex = findSpawnPositions();
 	spawnPostions[positionIndex].activeObject = &modelShapes[randomSelectedShape];
-	activeShapes.push_back(randomSelectedShape);
+	activeShapes.push_back(positionIndex);
+	printf("shape = %d ,  pos = %d\n", spawnPostions[positionIndex].activeObject->shapeType, positionIndex);
 	//Shape 6
 	randomSelectedShape = randomSelection(0, 29);
 	positionIndex = findSpawnPositions();
 	spawnPostions[positionIndex].activeObject = &modelShapes[randomSelectedShape];
-	activeShapes.push_back(randomSelectedShape);
+	activeShapes.push_back(positionIndex);
+	printf("shape = %d ,  pos = %d\n", spawnPostions[positionIndex].activeObject->shapeType, positionIndex);
+	//Shape 7
+	randomSelectedShape = randomSelection(0, 29);
+	positionIndex = findSpawnPositions();
+	spawnPostions[positionIndex].activeObject = &modelShapes[randomSelectedShape];
+	activeShapes.push_back(positionIndex);
+	printf("shape = %d ,  pos = %d\n", spawnPostions[positionIndex].activeObject->shapeType, positionIndex);
+	//Shape 8
+	randomSelectedShape = randomSelection(0, 29);
+	positionIndex = findSpawnPositions();
+	spawnPostions[positionIndex].activeObject = &modelShapes[randomSelectedShape];
+	activeShapes.push_back(positionIndex);
+	printf("shape = %d ,  pos = %d\n", spawnPostions[positionIndex].activeObject->shapeType, positionIndex);
 }
 
 

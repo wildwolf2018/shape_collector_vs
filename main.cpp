@@ -18,6 +18,7 @@
 #include "shadow.h"
 #include "font.h"
 #include "particle.h"
+#include "level_manager.h"
 #include <ft2build.h>
 #include FT_FREETYPE_H
 #include <irrKlang.h>
@@ -34,10 +35,11 @@ void mouse_callback(GLFWwindow* window, double xpos, double ypos);
 void mouse_cursor_reset(GLFWwindow* window, int entered);
 void do_movement();
 GLboolean testCollision(glm::vec3 cameraPosition, glm::vec3 shapeCenterPos);
+void setModelMatrix(PositionInfo& spawnPosition, std::vector<glm::mat4>& v);
 
 //Viewport size
-const int WIDTH = 1200;
-const int HEIGHT = 700;
+const int WIDTH = 1300;
+const int HEIGHT = 800;
 
 // Camera
 glm::vec3 cameraPos = glm::vec3(0.0f, 0.0f, 30.0f);
@@ -102,14 +104,7 @@ int main()
 	//Create projection matrix and pass it to the shader
 	glm::mat4 projection;
 	projection = glm::perspective(45.0f, (GLfloat)WIDTH / (GLfloat)HEIGHT, 0.1f, 500.0f);
-	glm::mat4 model, view;
-	glm::vec3 shapeCenterPos = glm::vec3(0.0f, 0.0f, 0.0f);
-	model = glm::translate(model, shapeCenterPos);
-	shapeCenterPos = glm::vec3(model * glm::vec4(shapeCenterPos, 1.0f));
-	model = glm::scale(model, glm::vec3(5.0f, 5.0f, 5.0f));
-	//shapeCenterPos = glm::vec3(model * glm::vec4(shapeCenterPos, 1.0f));
-	//model = glm::rotate(model, 100.0f, glm::vec3(1.0f, 0.0f, 0.0f));
-	model = glm::scale(model, glm::vec3(1.0f, 1.0f, 1.0f));
+	glm::mat4 view;
 
 	//Place floor in the world
 	glm::mat4 modelFloorMatrix;
@@ -122,9 +117,10 @@ int main()
 	glm::mat4 lightView = glm::lookAt(glm::vec3(-10.0f, 10.0f, 10.0f), glm::vec3(0.0f), glm::vec3(1.0));//vec3(14.64f, 20.0f, 10.0f),
 	glm::mat4 lightSpaceMatrix = lightProjection * lightView;
 
-	Model* _model = new Model[1];
+	LevelManager gameManager;
+	/*Model* _model = new Model[1];
 	_model->shapeType = Shapes3D::CUBE;
-	_model->loadModel("..\\OpenGlLTest\\cube2.obj");
+	_model->loadModel("..\\OpenGlLTest\\triangular_pyramid2.obj");*/
 	std::shared_ptr<Shader> shaderObject = ResourceManager::GetShader("model");
 	std::shared_ptr<Shader> depthMapShader = ResourceManager::GetShader("shadow_map");
 	
@@ -144,47 +140,59 @@ int main()
 	bool changeFutureTime = true;
 	bool drawObj = false;
 	GLuint blinkCount = 0;
-	while (!glfwWindowShouldClose(window)) {
+	
+
+	PositionInfo temp;
+	 std::vector<glm::mat4> model;// [] = { glm::mat4(),  glm::mat4(), glm::mat4(), glm::mat4(), glm::mat4(), glm::mat4() };
+	 for (unsigned int i = 0; i < gameManager.activeShapes.size(); ++i) {
+		 temp = gameManager.spawnPostions[gameManager.activeShapes[i]];
+		 if (temp.activeObject != nullptr) {
+			 setModelMatrix(temp, model);
+		 }
+	 }
+	while (!glfwWindowShouldClose(window)) 
+	{
 		glfwPollEvents();
 		do_movement();
-		if (explosion.isAnimPlaying == false && testCollision(cameraPos, shapeCenterPos)) {
-			timer = 0.0f;
-			explosion.particleSpeed = 0.0f;
-			explosion.animStart = true;
-			//Start the game clock
-			start_ticks = std::chrono::steady_clock::now();
-			showObj = false;
-		}
+		//Calculate deltaTime
+		GLfloat currentFrame = glfwGetTime();
+		deltaTime = currentFrame - lastFrame;
+		lastFrame = currentFrame;
+	//	std::cout << "delat in main = " << deltaTime << std::endl;
+		//if (explosion.isAnimPlaying == false && testCollision(cameraPos, shapeCenterPos)) {
+		//	timer = 0.0f;
+		//	explosion.particleSpeed = 0.0f;
+		//	explosion.animStart = true;
+		//	//Start the game clock
+		//	start_ticks = std::chrono::steady_clock::now();
+		//	showObj = false;
+		//}
 
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 		//Render to the shadow map framebuffer
 		shadowObj.renderToFrameBuffer(lightSpaceMatrix, depthMapShader);
 		glUniformMatrix4fv(glGetUniformLocation(depthMapShader->ProgramID, "model"), 1, GL_FALSE, glm::value_ptr(modelFloorMatrix));
 		floor.draw();
-		model = glm::rotate(model, 1.0f * deltaTime, glm::vec3(1.0f, 1.0f, 1.0f));
-		glUniformMatrix4fv(glGetUniformLocation(depthMapShader->ProgramID, "model"), 1, GL_FALSE, glm::value_ptr(model));
-		if (changeFutureTime) {
-			futureTime = timer2 + 1.0f;
-			futureTimer2 = timer2 + 3.0f;
-			changeFutureTime = false;
+		
+		int numShapes = 0;
+	//	glm::mat4 model;// [] = { glm::mat4(),  glm::mat4(), glm::mat4(), glm::mat4(), glm::mat4(), glm::mat4() };
+		for (unsigned int i = 0; i < gameManager.activeShapes.size(); ++i) {
+			PositionInfo temp = gameManager.spawnPostions[gameManager.activeShapes[i]];
+			model[i] = glm::rotate(model[i], 1.0f * deltaTime, glm::vec3(1.0f, 1.0f, 1.0f));
+			glUniformMatrix4fv(glGetUniformLocation(depthMapShader->ProgramID, "model"), 1, GL_FALSE, glm::value_ptr(model[i]));
+			temp.activeObject->Draw();
 		}
-		if (showObj && timer2 <= 1.0f)
-		{
-			_model->Draw();
-			//changeFutureTime = true;
-		}
-		if (timer2 >= 1.1f && blinkCount < 20) {
-		//	start_ticks2 = std::chrono::steady_clock::now();
-			timer2 = 0.0f;
-			++blinkCount;
-			//std::cout << " Hello\n";
-		}
+		//if (showObj)
+		//{
+		//	_model->Draw();//TO DO
+		//	//changeFutureTime = true;
+		//}
 		glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
-		//Calculate deltaTime
-		GLfloat currentFrame = glfwGetTime();
-		deltaTime = currentFrame - lastFrame;
-		lastFrame = currentFrame;
+		////Calculate deltaTime
+		//GLfloat currentFrame = glfwGetTime();
+		//deltaTime = currentFrame - lastFrame;
+		//lastFrame = currentFrame;
 
 		//Clear color and depth buffers
 		glViewport(0, 0, WIDTH, HEIGHT);
@@ -195,17 +203,23 @@ int main()
 		glDisable(GL_CULL_FACE);
 		shaderObject->Use();
 		shaderObject->setMatrix(projection, "projection");
-		shaderObject->setMatrix(model, "model");
+		//shaderObject->setMatrix(model, "model");//TO DO
 		view = glm::lookAt(cameraPos, cameraPos + cameraFront, cameraUp);
 		shaderObject->setMatrix(view, "view");
 		shaderObject->setMatrix(lightSpaceMatrix, "lightSpaceMatrix");
 		glBindTexture(GL_TEXTURE_2D, shadowObj.depthMap);
 		glUniform1i(glGetUniformLocation(shaderObject->ProgramID, "shadowMap"), 0);
-		
-		if (showObj && timer2 <= 1.0f) {
-			_model->setLightUniforms(shaderObject, cameraPos);
-			_model->Draw();
+		for (unsigned int i = 0; i < gameManager.activeShapes.size(); ++i) {
+			shaderObject->setMatrix(model[i], "model");
+			int index = gameManager.activeShapes[i];
+			PositionInfo p = gameManager.spawnPostions[index];
+			p.activeObject->setLightUniforms(shaderObject, cameraPos);
+			p.activeObject->Draw();
 		}
+		//if (showObj) {
+		//	_model->setLightUniforms(shaderObject, cameraPos);//TO DO
+		//	_model->Draw();//TO DO
+		//}
 		shaderObject->setMatrix(modelFloorMatrix, "model");
 		floor.setUniforms(shaderObject, cameraPos);
 		floor.draw();
@@ -235,14 +249,6 @@ int main()
 			glDisable(GL_BLEND);
 			//message.displayOnScreen(correctResultMessages[3], glm::vec3(500.0f, 350.0f, 0.5f), glm::vec3(1.0f, 0.84f, 0.0f), view);
 		}
-
-		// Use end_ticks as the new begin_ticks for next frame
-	//	start_ticks = end_ticks;
-		end_ticks2 = std::chrono::steady_clock::now();
-		std::chrono::duration<double> delta2 = end_ticks2 - start_ticks2;
-		timer2 += delta2.count();
-		start_ticks2 = end_ticks2;
-	//	std::cout << "total time elapsed = " << timer2 << std::endl;
 		glfwSwapBuffers(window);
 	}
 	glfwTerminate();
@@ -261,7 +267,7 @@ void do_movement()
 		cameraPos -= glm::normalize(glm::cross(cameraFront, cameraUp)) * cameraSpeed;
 	if (keys[GLFW_KEY_D])
 		cameraPos += glm::normalize(glm::cross(cameraFront, cameraUp)) * cameraSpeed;
-	//cameraFront.y = 0.0f;
+	cameraFront.y = 0.0f;
 	//std::cout << "x = " << cameraPos.x << "  y = " << cameraPos.y << "  z = " << cameraPos.z << std::endl;
 }
 
@@ -295,7 +301,7 @@ void mouse_callback(GLFWwindow* window, double xpos, double ypos)
 	lastX = static_cast<GLfloat>(xpos);
 	lastY = static_cast<GLfloat>(ypos);
 
-	GLfloat sensitivity = 0.1f;	// Change this value to your liking
+	GLfloat sensitivity = 0.5f;	// Change this value to your liking
 	xoffset *= sensitivity;
 	yoffset *= sensitivity;
 
@@ -303,10 +309,10 @@ void mouse_callback(GLFWwindow* window, double xpos, double ypos)
 	pitch += yoffset;
 
 	// Make sure that when pitch is out of bounds, screen doesn't get flipped
-	if (pitch > 89.0f)
-		pitch = 89.0f;
-	if (pitch < -89.0f)
-		pitch = -89.0f;
+	if (pitch > 0.0f)
+		pitch = 0.0f;
+	if (pitch < 0.0f)
+		pitch = 0.0f;
 
 	glm::vec3 front;
 	front.x = cos(glm::radians(yaw)) * cos(glm::radians(pitch));
@@ -327,7 +333,7 @@ void mouse_cursor_reset(GLFWwindow* window, int entered)
 GLboolean testCollision(glm::vec3 cameraPosition, glm::vec3 shapeCenterPos)
 {
 	constexpr float PLAYER_RADIUS = 0.1f;
-	constexpr float OBJ_RADIUS = 3.5f;
+	constexpr float OBJ_RADIUS = 3.0f;
 
 	glm::vec3 s = shapeCenterPos - cameraPos;
 	float distanceSquared = glm::dot(s, s);
@@ -336,10 +342,51 @@ GLboolean testCollision(glm::vec3 cameraPosition, glm::vec3 shapeCenterPos)
 	if (distanceSquared <= d)
 	{
 		std::cout << "Collision Detected\n";
+		printf("x = %.1f, y = %.1f, z = %.1f", cameraPosition.x, cameraPosition.y, cameraPosition.z);
 		return true;
 	}
 	return false;
-	
 }
 
 
+void setModelMatrix(PositionInfo& spawnPosition, std::vector<glm::mat4>& v)
+{
+	Model* shape = spawnPosition.activeObject;
+	Shapes3D type = shape->shapeType;
+	glm::mat4 modelMatrix;
+
+	//Place shape in correct world position
+	switch (type)
+	{
+	case Shapes3D::R_PRISM:
+		spawnPosition.worldPosition.y = 1.8f;
+		modelMatrix = glm::translate(modelMatrix, spawnPosition.worldPosition);
+		modelMatrix = glm::scale(modelMatrix, glm::vec3(3.0f, 3.0f, 3.0f));
+		v.push_back(modelMatrix);
+		break;
+	case Shapes3D::T_PRISM:
+		spawnPosition.worldPosition.y = 1.0f;
+		modelMatrix = glm::translate(modelMatrix, spawnPosition.worldPosition);
+		modelMatrix = glm::scale(modelMatrix, glm::vec3(3.0f, 3.0f, 3.0f));
+		v.push_back(modelMatrix);
+		break;
+	case Shapes3D::R_PYRAMID:
+		spawnPosition.worldPosition.y = 2.5f;
+		modelMatrix = glm::translate(modelMatrix, spawnPosition.worldPosition);
+		modelMatrix = glm::scale(modelMatrix, glm::vec3(5.0f, 5.0f, 5.0f));
+		v.push_back(modelMatrix);
+		break;
+	case Shapes3D::ELLIPSOID:
+	case Shapes3D::T_PYRAMID:
+		spawnPosition.worldPosition.y = 1.0f;
+		modelMatrix = glm::translate(modelMatrix, spawnPosition.worldPosition);
+		modelMatrix = glm::scale(modelMatrix, glm::vec3(5.0f, 5.0f, 5.0f));
+		v.push_back(modelMatrix);
+		break;
+	default:
+		spawnPosition.worldPosition.y = 0.0f;
+		modelMatrix = glm::translate(modelMatrix, spawnPosition.worldPosition);
+		modelMatrix = glm::scale(modelMatrix, glm::vec3(5.0f, 5.0f, 5.0f));
+		v.push_back(modelMatrix);
+	}
+}
