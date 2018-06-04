@@ -7,28 +7,43 @@
 #include <map>
 #include <list>
 #include "model.h"
+#include "animation.h"
+#include "time_clock.h"
+#include "font.h"
 
 struct PositionInfo {
 	glm::vec3 worldPosition;
 	Model* activeObject;
 };
 
+enum class StateMachine { START, PLAY, GAME_OVER };
+
 class LevelManager {
 public:
-	LevelManager();
+	LevelManager(const char* fontName);
 	std::map<GLuint, PositionInfo> spawnPostions;
 	std::vector<GLuint>activeShapes;
 	Model* modelShapes;
-	std::map<Shapes3D, glm::mat4> shapeModelMatrices;
+	Animation animController;
+	StateMachine currentState;
+	Font font;
+	std::vector<glm::mat4>  shapeModelMatrices;
+	void createShapes(GLuint programID, float deltaTime);
+	void drawShapes(std::shared_ptr<Shader> shaderObj, glm::vec3 & cameraPos);
+	void displayShapeText();
+	void gameLoop();
 private:
 	const GLuint NUM_SHAPES = 30;
 	int selectedShape;
-	unsigned int objectAnimStates = 0x00000000;
-	unsigned int availablePositions;
+	int numCurrentShape;
+	int totalShapes;
+	Clock globalTimer;
 	void createShapes();
 	void initSpawnPositions();
 	void firstSpawnShapes();
 	void secondSpawnShapes();
+	void setModelMatrices();
+	void setModelMatrix(PositionInfo & spawnPosition);
 	int randomSelection(int min, int max);
 	GLuint findSpawnPositions();
 };

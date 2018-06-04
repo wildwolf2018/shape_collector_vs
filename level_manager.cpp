@@ -1,17 +1,36 @@
 #include "level_manager.h"
 #include "utilities.h"
+#include "resource_manager.h"
 #include <iostream>
 #include <random>
 #include <chrono>
 #include <algorithm>
+#include <sstream>
 
-LevelManager::LevelManager()
+LevelManager::LevelManager(const char* fontName):font{ fontName }, animController{9}, globalTimer{}, numCurrentShape{0}, totalShapes{0}
 {
-	activeShapes.reserve(6);
+	currentState = StateMachine::START;
+	activeShapes.reserve(8);
 	createShapes();
 	initSpawnPositions();
-	firstSpawnShapes();
-	secondSpawnShapes();
+}
+
+void LevelManager::gameLoop()
+{
+	switch (currentState)
+	{
+	case StateMachine::START:
+		firstSpawnShapes();
+		secondSpawnShapes();
+		setModelMatrices();
+		currentState = StateMachine::PLAY;
+		break;
+	case StateMachine::PLAY:
+	//	displayShapeText(selectedShape);
+		break;
+	default:
+		break;
+	}
 }
 
 void LevelManager::createShapes()
@@ -149,5 +168,103 @@ void LevelManager::secondSpawnShapes()
 	printf("shape = %d ,  pos = %d\n", spawnPostions[positionIndex].activeObject->shapeType, positionIndex);
 }
 
+void LevelManager::setModelMatrices()
+{
+	PositionInfo temp;
+	for (unsigned int i = 0; i < activeShapes.size(); ++i) {
+		temp = spawnPostions[activeShapes[i]];
+		if (temp.activeObject != nullptr) {
+			setModelMatrix(temp);
+		}
+	}
+}
+
+void LevelManager::setModelMatrix(PositionInfo& spawnPosition)
+{
+	Model* shape = spawnPosition.activeObject;
+	Shapes3D type = shape->shapeType;
+	glm::mat4 modelMatrix;
+
+	//Place shape in correct world position
+	switch (type)
+	{
+	case Shapes3D::R_PRISM:
+		spawnPosition.worldPosition.y = 1.8f;
+		modelMatrix = glm::translate(modelMatrix, spawnPosition.worldPosition);
+		modelMatrix = glm::scale(modelMatrix, glm::vec3(3.0f, 3.0f, 3.0f));
+		shapeModelMatrices.push_back(modelMatrix);
+		break;
+	case Shapes3D::T_PRISM:
+		spawnPosition.worldPosition.y = 1.0f;
+		modelMatrix = glm::translate(modelMatrix, spawnPosition.worldPosition);
+		modelMatrix = glm::scale(modelMatrix, glm::vec3(3.0f, 3.0f, 3.0f));
+		shapeModelMatrices.push_back(modelMatrix);
+		break;
+	case Shapes3D::R_PYRAMID:
+		spawnPosition.worldPosition.y = 2.5f;
+		modelMatrix = glm::translate(modelMatrix, spawnPosition.worldPosition);
+		modelMatrix = glm::scale(modelMatrix, glm::vec3(5.0f, 5.0f, 5.0f));
+		shapeModelMatrices.push_back(modelMatrix);
+		break;
+	case Shapes3D::ELLIPSOID:
+	case Shapes3D::T_PYRAMID:
+		spawnPosition.worldPosition.y = 1.0f;
+		modelMatrix = glm::translate(modelMatrix, spawnPosition.worldPosition);
+		modelMatrix = glm::scale(modelMatrix, glm::vec3(5.0f, 5.0f, 5.0f));
+		shapeModelMatrices.push_back(modelMatrix);
+		break;
+	default:
+		spawnPosition.worldPosition.y = 0.0f;
+		modelMatrix = glm::translate(modelMatrix, spawnPosition.worldPosition);
+		modelMatrix = glm::scale(modelMatrix, glm::vec3(5.0f, 5.0f, 5.0f));
+		shapeModelMatrices.push_back(modelMatrix);
+	}
+}
+
+void LevelManager::createShapes(GLuint programID, float deltaTime)
+{
+	for (unsigned int i = 0; i < activeShapes.size(); ++i) {
+		PositionInfo temp = spawnPostions[activeShapes[i]];
+		shapeModelMatrices[i] = glm::rotate(shapeModelMatrices[i], 1.0f * deltaTime, glm::vec3(1.0f, 1.0f, 1.0f));
+		glUniformMatrix4fv(glGetUniformLocation(programID, "model"), 1, GL_FALSE, glm::value_ptr(shapeModelMatrices[i]));
+		temp.activeObject->Draw();
+	}
+}
+
+void LevelManager::drawShapes(std::shared_ptr<Shader>shaderObject, glm::vec3& cameraPos)
+{
+	for (unsigned int i = 0; i < activeShapes.size(); ++i) {
+		shaderObject->setMatrix(shapeModelMatrices[i], "model");
+		int index = activeShapes[i];
+		PositionInfo p = spawnPostions[index];
+		p.activeObject->setLightUniforms(shaderObject, cameraPos);
+		p.activeObject->Draw();
+	}
+}
+
+void LevelManager::displayShapeText()
+{
+	std::string shape{""};
+	switch (selectedShape)
+	{
+	case 0:shape = "CONES";break;
+	case 1:shape = "CUBES";break;
+	case 2:shape = "CYLINDERS";break;
+	case 3:shape = "ELLIPSOIDS";break;
+	case 4:shape = "HEMISPHERE";break;
+	case 5:shape = "R_PRISM"; break;
+	case 6:shape = "R_PYRAMID"; break;
+	case 7:shape = "SPHERE"; break;
+	case 8:shape = "T_PRISM"; break;
+	case 9:shape = "T_PYRAMID"; break;
+	}
+	glEnable(GL_BLEND);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+	std::ostringstream resultsDisplayText;
+	resultsDisplayText << shape << " X " << numCurrentShape;
+	std::string temp{ resultsDisplayText.str() };
+	font.renderCharacters(ResourceManager::GetShader("fontShader"), temp, 250.0f, 300.0f, 1.0f, glm::vec3(1.0f, 0.84f, 0.0f));
+	glDisable(GL_BLEND);
+}
 
 

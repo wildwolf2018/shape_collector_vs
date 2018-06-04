@@ -117,7 +117,7 @@ int main()
 	glm::mat4 lightView = glm::lookAt(glm::vec3(-10.0f, 10.0f, 10.0f), glm::vec3(0.0f), glm::vec3(1.0));//vec3(14.64f, 20.0f, 10.0f),
 	glm::mat4 lightSpaceMatrix = lightProjection * lightView;
 
-	LevelManager gameManager;
+	LevelManager gameManager{"arial.ttf"};
 	/*Model* _model = new Model[1];
 	_model->shapeType = Shapes3D::CUBE;
 	_model->loadModel("..\\OpenGlLTest\\triangular_pyramid2.obj");*/
@@ -141,58 +141,17 @@ int main()
 	bool drawObj = false;
 	GLuint blinkCount = 0;
 	
-
-	PositionInfo temp;
-	 std::vector<glm::mat4> model;// [] = { glm::mat4(),  glm::mat4(), glm::mat4(), glm::mat4(), glm::mat4(), glm::mat4() };
-	 for (unsigned int i = 0; i < gameManager.activeShapes.size(); ++i) {
-		 temp = gameManager.spawnPostions[gameManager.activeShapes[i]];
-		 if (temp.activeObject != nullptr) {
-			 setModelMatrix(temp, model);
-		 }
-	 }
 	while (!glfwWindowShouldClose(window)) 
 	{
 		glfwPollEvents();
 		do_movement();
-		//Calculate deltaTime
-		GLfloat currentFrame = glfwGetTime();
-		deltaTime = currentFrame - lastFrame;
-		lastFrame = currentFrame;
-	//	std::cout << "delat in main = " << deltaTime << std::endl;
-		//if (explosion.isAnimPlaying == false && testCollision(cameraPos, shapeCenterPos)) {
-		//	timer = 0.0f;
-		//	explosion.particleSpeed = 0.0f;
-		//	explosion.animStart = true;
-		//	//Start the game clock
-		//	start_ticks = std::chrono::steady_clock::now();
-		//	showObj = false;
-		//}
-
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 		//Render to the shadow map framebuffer
 		shadowObj.renderToFrameBuffer(lightSpaceMatrix, depthMapShader);
 		glUniformMatrix4fv(glGetUniformLocation(depthMapShader->ProgramID, "model"), 1, GL_FALSE, glm::value_ptr(modelFloorMatrix));
 		floor.draw();
-		
-		int numShapes = 0;
-	//	glm::mat4 model;// [] = { glm::mat4(),  glm::mat4(), glm::mat4(), glm::mat4(), glm::mat4(), glm::mat4() };
-		for (unsigned int i = 0; i < gameManager.activeShapes.size(); ++i) {
-			PositionInfo temp = gameManager.spawnPostions[gameManager.activeShapes[i]];
-			model[i] = glm::rotate(model[i], 1.0f * deltaTime, glm::vec3(1.0f, 1.0f, 1.0f));
-			glUniformMatrix4fv(glGetUniformLocation(depthMapShader->ProgramID, "model"), 1, GL_FALSE, glm::value_ptr(model[i]));
-			temp.activeObject->Draw();
-		}
-		//if (showObj)
-		//{
-		//	_model->Draw();//TO DO
-		//	//changeFutureTime = true;
-		//}
+		gameManager.createShapes(depthMapShader->ProgramID, deltaTime);
 		glBindFramebuffer(GL_FRAMEBUFFER, 0);
-
-		////Calculate deltaTime
-		//GLfloat currentFrame = glfwGetTime();
-		//deltaTime = currentFrame - lastFrame;
-		//lastFrame = currentFrame;
 
 		//Clear color and depth buffers
 		glViewport(0, 0, WIDTH, HEIGHT);
@@ -203,27 +162,17 @@ int main()
 		glDisable(GL_CULL_FACE);
 		shaderObject->Use();
 		shaderObject->setMatrix(projection, "projection");
-		//shaderObject->setMatrix(model, "model");//TO DO
 		view = glm::lookAt(cameraPos, cameraPos + cameraFront, cameraUp);
 		shaderObject->setMatrix(view, "view");
 		shaderObject->setMatrix(lightSpaceMatrix, "lightSpaceMatrix");
 		glBindTexture(GL_TEXTURE_2D, shadowObj.depthMap);
 		glUniform1i(glGetUniformLocation(shaderObject->ProgramID, "shadowMap"), 0);
-		for (unsigned int i = 0; i < gameManager.activeShapes.size(); ++i) {
-			shaderObject->setMatrix(model[i], "model");
-			int index = gameManager.activeShapes[i];
-			PositionInfo p = gameManager.spawnPostions[index];
-			p.activeObject->setLightUniforms(shaderObject, cameraPos);
-			p.activeObject->Draw();
-		}
-		//if (showObj) {
-		//	_model->setLightUniforms(shaderObject, cameraPos);//TO DO
-		//	_model->Draw();//TO DO
-		//}
+		gameManager.gameLoop();
+		gameManager.drawShapes(shaderObject, cameraPos);
 		shaderObject->setMatrix(modelFloorMatrix, "model");
 		floor.setUniforms(shaderObject, cameraPos);
 		floor.draw();
-
+		gameManager.displayShapeText();
 		// Send uniforms data to shader
 		if (timer <= 2.0f) {
 			particleShaderObj->Use();
@@ -247,8 +196,10 @@ int main()
 			glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 			messageText.renderCharacters(ResourceManager::GetShader("fontShader"), "Excellent!!!", 250.0f, 300.0f, 1.0f, glm::vec3(1.0f, 0.84f, 0.0f));
 			glDisable(GL_BLEND);
-			//message.displayOnScreen(correctResultMessages[3], glm::vec3(500.0f, 350.0f, 0.5f), glm::vec3(1.0f, 0.84f, 0.0f), view);
 		}
+		GLfloat currentFrame = glfwGetTime();
+		deltaTime = currentFrame - lastFrame;
+		lastFrame = currentFrame;
 		glfwSwapBuffers(window);
 	}
 	glfwTerminate();
@@ -346,47 +297,4 @@ GLboolean testCollision(glm::vec3 cameraPosition, glm::vec3 shapeCenterPos)
 		return true;
 	}
 	return false;
-}
-
-
-void setModelMatrix(PositionInfo& spawnPosition, std::vector<glm::mat4>& v)
-{
-	Model* shape = spawnPosition.activeObject;
-	Shapes3D type = shape->shapeType;
-	glm::mat4 modelMatrix;
-
-	//Place shape in correct world position
-	switch (type)
-	{
-	case Shapes3D::R_PRISM:
-		spawnPosition.worldPosition.y = 1.8f;
-		modelMatrix = glm::translate(modelMatrix, spawnPosition.worldPosition);
-		modelMatrix = glm::scale(modelMatrix, glm::vec3(3.0f, 3.0f, 3.0f));
-		v.push_back(modelMatrix);
-		break;
-	case Shapes3D::T_PRISM:
-		spawnPosition.worldPosition.y = 1.0f;
-		modelMatrix = glm::translate(modelMatrix, spawnPosition.worldPosition);
-		modelMatrix = glm::scale(modelMatrix, glm::vec3(3.0f, 3.0f, 3.0f));
-		v.push_back(modelMatrix);
-		break;
-	case Shapes3D::R_PYRAMID:
-		spawnPosition.worldPosition.y = 2.5f;
-		modelMatrix = glm::translate(modelMatrix, spawnPosition.worldPosition);
-		modelMatrix = glm::scale(modelMatrix, glm::vec3(5.0f, 5.0f, 5.0f));
-		v.push_back(modelMatrix);
-		break;
-	case Shapes3D::ELLIPSOID:
-	case Shapes3D::T_PYRAMID:
-		spawnPosition.worldPosition.y = 1.0f;
-		modelMatrix = glm::translate(modelMatrix, spawnPosition.worldPosition);
-		modelMatrix = glm::scale(modelMatrix, glm::vec3(5.0f, 5.0f, 5.0f));
-		v.push_back(modelMatrix);
-		break;
-	default:
-		spawnPosition.worldPosition.y = 0.0f;
-		modelMatrix = glm::translate(modelMatrix, spawnPosition.worldPosition);
-		modelMatrix = glm::scale(modelMatrix, glm::vec3(5.0f, 5.0f, 5.0f));
-		v.push_back(modelMatrix);
-	}
 }
