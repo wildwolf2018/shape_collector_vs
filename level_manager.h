@@ -28,7 +28,7 @@ public:
 	StateMachine currentState;
 	Font font;
 	std::vector<glm::mat4>  shapeModelMatrices;
-	void createShapes(GLuint programID, float deltaTime);
+	void renderShadows(GLuint programID, float deltaTime);
 	void drawShapes(std::shared_ptr<Shader> shaderObj, glm::vec3 & cameraPos);
 	void displayShapeText();
 	void gameLoop();
@@ -37,7 +37,10 @@ private:
 	int selectedShape;
 	int numCurrentShape;
 	int totalShapes;
-	Clock globalTimer;
+	std::vector<Clock> animTimers;
+	std::vector<int> counters;
+	const int STOP_COUNT = 6;
+	Clock globalTimer[5];
 	void createShapes();
 	void initSpawnPositions();
 	void firstSpawnShapes();

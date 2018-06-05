@@ -7,12 +7,14 @@
 #include <algorithm>
 #include <sstream>
 
-LevelManager::LevelManager(const char* fontName):font{ fontName }, animController{9}, globalTimer{}, numCurrentShape{0}, totalShapes{0}
+LevelManager::LevelManager(const char* fontName):font{ fontName }, animController{9}, numCurrentShape{0}, totalShapes{0}
 {
 	currentState = StateMachine::START;
-	activeShapes.reserve(8);
+	activeShapes.reserve(5);
 	createShapes();
 	initSpawnPositions();
+	animTimers.reserve(5);
+	counters.reserve(5);
 }
 
 void LevelManager::gameLoop()
@@ -119,53 +121,59 @@ void LevelManager::firstSpawnShapes()
 	spawnPostions[positionIndex].activeObject = (modelShapes + index);
 	activeShapes.push_back(positionIndex);
 	printf("shape = %d , pos = %d\n", spawnPostions[positionIndex].activeObject->shapeType, positionIndex);
-	//Shape 2
-	positionIndex = findSpawnPositions();
-	index = selectedShape * STRIDE + 1;
-	spawnPostions[positionIndex].activeObject = (modelShapes + index);
-	activeShapes.push_back(positionIndex);
-	printf("shape = %d ,  pos = %d\n", spawnPostions[positionIndex].activeObject->shapeType, positionIndex);
-	//Shape 3
-	positionIndex = findSpawnPositions();
-	index = selectedShape * STRIDE + 2;
-	spawnPostions[positionIndex].activeObject = (modelShapes + index);
-	activeShapes.push_back(positionIndex);
-	printf("shape = %d ,  pos = %d\n", spawnPostions[positionIndex].activeObject->shapeType, positionIndex);
+	animTimers.emplace_back(Clock());
+	animTimers[0].startClock();
+	globalTimer[0].startClock();
+	animTimers[0].addTime();
+	animController.setEndTime(positionIndex, animTimers[0].getElapsedTime());
+	counters.push_back(0);
+	////Shape 2
+	//positionIndex = findSpawnPositions();
+	//index = selectedShape * STRIDE + 1;
+	//spawnPostions[positionIndex].activeObject = (modelShapes + index);
+	//activeShapes.push_back(positionIndex);
+	//printf("shape = %d ,  pos = %d\n", spawnPostions[positionIndex].activeObject->shapeType, positionIndex);
+	////Shape 3
+	//positionIndex = findSpawnPositions();
+	//index = selectedShape * STRIDE + 2;
+	//spawnPostions[positionIndex].activeObject = (modelShapes + index);
+	//activeShapes.push_back(positionIndex);
+	//printf("shape = %d ,  pos = %d\n", spawnPostions[positionIndex].activeObject->shapeType, positionIndex);
 }
 
 void LevelManager::secondSpawnShapes()
 {
 	//Place 3 other shapes on the grid
 	//Shape 4
-	int randomSelectedShape = randomSelection(0, 29);
-	GLuint positionIndex = findSpawnPositions();
-	spawnPostions[positionIndex].activeObject = &modelShapes[randomSelectedShape];
-	activeShapes.push_back(positionIndex);
-	printf("shape = %d ,  pos = %d\n", spawnPostions[positionIndex].activeObject->shapeType, positionIndex);
-	//Shape 5
-	randomSelectedShape = randomSelection(0, 29);
-	positionIndex = findSpawnPositions();
-	spawnPostions[positionIndex].activeObject = &modelShapes[randomSelectedShape];
-	activeShapes.push_back(positionIndex);
-	printf("shape = %d ,  pos = %d\n", spawnPostions[positionIndex].activeObject->shapeType, positionIndex);
+	//int randomSelectedShape = randomSelection(0, 29);
+	//GLuint positionIndex = findSpawnPositions();
+	//spawnPostions[positionIndex].activeObject = &modelShapes[randomSelectedShape];
+	//activeShapes.push_back(positionIndex);
+	//printf("shape = %d ,  pos = %d\n", spawnPostions[positionIndex].activeObject->shapeType, positionIndex);
+	////Shape 5
+	//randomSelectedShape = randomSelection(0, 29);
+	//positionIndex = findSpawnPositions();
+	//spawnPostions[positionIndex].activeObject = &modelShapes[randomSelectedShape];
+	//activeShapes.push_back(positionIndex);
+	//printf("shape = %d ,  pos = %d\n", spawnPostions[positionIndex].activeObject->shapeType, positionIndex);
 	//Shape 6
-	randomSelectedShape = randomSelection(0, 29);
-	positionIndex = findSpawnPositions();
-	spawnPostions[positionIndex].activeObject = &modelShapes[randomSelectedShape];
-	activeShapes.push_back(positionIndex);
-	printf("shape = %d ,  pos = %d\n", spawnPostions[positionIndex].activeObject->shapeType, positionIndex);
-	//Shape 7
-	randomSelectedShape = randomSelection(0, 29);
-	positionIndex = findSpawnPositions();
-	spawnPostions[positionIndex].activeObject = &modelShapes[randomSelectedShape];
-	activeShapes.push_back(positionIndex);
-	printf("shape = %d ,  pos = %d\n", spawnPostions[positionIndex].activeObject->shapeType, positionIndex);
-	//Shape 8
-	randomSelectedShape = randomSelection(0, 29);
-	positionIndex = findSpawnPositions();
-	spawnPostions[positionIndex].activeObject = &modelShapes[randomSelectedShape];
-	activeShapes.push_back(positionIndex);
-	printf("shape = %d ,  pos = %d\n", spawnPostions[positionIndex].activeObject->shapeType, positionIndex);
+	//randomSelectedShape = randomSelection(0, 29);
+	//positionIndex = findSpawnPositions();
+	//spawnPostions[positionIndex].activeObject = &modelShapes[randomSelectedShape];
+	//activeShapes.push_back(positionIndex);
+	//printf("shape = %d ,  pos = %d\n", spawnPostions[positionIndex].activeObject->shapeType, positionIndex);
+	////Shape 7
+	//randomSelectedShape = randomSelection(0, 29);
+	//positionIndex = findSpawnPositions();
+	//spawnPostions[positionIndex].activeObject = &modelShapes[randomSelectedShape];
+	//activeShapes.push_back(positionIndex);
+	//printf("shape = %d ,  pos = %d\n", spawnPostions[positionIndex].activeObject->shapeType, positionIndex);
+	////Shape 8
+	//randomSelectedShape = randomSelection(0, 29);
+	//positionIndex = findSpawnPositions();
+	//spawnPostions[positionIndex].activeObject = &modelShapes[randomSelectedShape];
+	//activeShapes.push_back(positionIndex);
+	//printf("shape = %d ,  pos = %d\n", spawnPostions[positionIndex].activeObject->shapeType, positionIndex);
 }
 
 void LevelManager::setModelMatrices()
@@ -221,25 +229,52 @@ void LevelManager::setModelMatrix(PositionInfo& spawnPosition)
 	}
 }
 
-void LevelManager::createShapes(GLuint programID, float deltaTime)
+void LevelManager::renderShadows(GLuint programID, float deltaTime)
 {
 	for (unsigned int i = 0; i < activeShapes.size(); ++i) {
-		PositionInfo temp = spawnPostions[activeShapes[i]];
-		shapeModelMatrices[i] = glm::rotate(shapeModelMatrices[i], 1.0f * deltaTime, glm::vec3(1.0f, 1.0f, 1.0f));
-		glUniformMatrix4fv(glGetUniformLocation(programID, "model"), 1, GL_FALSE, glm::value_ptr(shapeModelMatrices[i]));
-		temp.activeObject->Draw();
-	}
+		int index = activeShapes[i];
+		PositionInfo temp = spawnPostions[index];
+		if (counters[i] <= STOP_COUNT) {
+			globalTimer[i].addTime();
+			animTimers[i].addTime();
+			if (animTimers[i].getElapsedTime() < animController.endTimes[index]) {
+				shapeModelMatrices[i] = glm::rotate(shapeModelMatrices[i], 1.0f * deltaTime, glm::vec3(1.0f, 1.0f, 1.0f));
+				glUniformMatrix4fv(glGetUniformLocation(programID, "model"), 1, GL_FALSE, glm::value_ptr(shapeModelMatrices[i]));
+				temp.activeObject->Draw();
+			}
+			else {
+				if (globalTimer[i].getElapsedTime() > 1.5f) {
+					animController.endTimes[index] = 1.0f;
+					animTimers[i].stopClock();
+					animTimers[i].startClock();
+					globalTimer[i].stopClock();
+					globalTimer[i].startClock();
+					++counters[i];
+				}//if
+			}//if-else
+		}//if
+		else {
+			temp.activeObject = nullptr;
+		}
+	}//for loop
 }
 
 void LevelManager::drawShapes(std::shared_ptr<Shader>shaderObject, glm::vec3& cameraPos)
 {
 	for (unsigned int i = 0; i < activeShapes.size(); ++i) {
-		shaderObject->setMatrix(shapeModelMatrices[i], "model");
-		int index = activeShapes[i];
-		PositionInfo p = spawnPostions[index];
-		p.activeObject->setLightUniforms(shaderObject, cameraPos);
-		p.activeObject->Draw();
-	}
+		if (counters[i] <= STOP_COUNT) {
+			globalTimer[i].addTime();
+			animTimers[i].addTime();
+			shaderObject->setMatrix(shapeModelMatrices[i], "model");
+			int index = activeShapes[i];
+			float passedTime = animTimers[i].getElapsedTime();
+			if (passedTime < animController.endTimes[index]) {
+				PositionInfo p = spawnPostions[index];
+				p.activeObject->setLightUniforms(shaderObject, cameraPos);
+				p.activeObject->Draw();
+			}//if
+		}//if
+	}//for loop
 }
 
 void LevelManager::displayShapeText()
