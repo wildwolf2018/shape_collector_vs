@@ -5,7 +5,7 @@
 class Animation {
 public:
 	Animation::Animation(int numOfSpawnPositions);
-	std::map<int,float> endTimes;
+	std::map<int, float> endTimes;
 	void setEndTime(int index, float currentTime);
 	bool checkExpiration(int position, float currentTime);
 };

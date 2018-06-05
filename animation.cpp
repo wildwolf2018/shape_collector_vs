@@ -9,7 +9,7 @@ Animation::Animation(int numOfSpawnPositions)
 
 void Animation::setEndTime(int index, float currentTime)
 {
-	constexpr float LIFE_TIME = 5.0f;
+	constexpr float LIFE_TIME = 10.0f;
 	endTimes[index] = currentTime + LIFE_TIME;
 }
 
