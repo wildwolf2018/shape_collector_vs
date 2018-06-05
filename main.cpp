@@ -42,7 +42,7 @@ const int WIDTH = 1300;
 const int HEIGHT = 800;
 
 // Camera
-glm::vec3 cameraPos = glm::vec3(0.0f, 0.0f, 30.0f);
+glm::vec3 cameraPos = glm::vec3(0.0f, 0.0f, 300.0f);
 glm::vec3 cameraFront = glm::vec3(0.0f, 0.0f, -1.0f);
 glm::vec3 cameraUp = glm::vec3(0.0f, 1.0f, 0.0f);
 /* Yaw is initialized to -90.0 degrees since a yaw of 0.0 results in a direction vector pointing to the right
@@ -150,7 +150,7 @@ int main()
 		shadowObj.renderToFrameBuffer(lightSpaceMatrix, depthMapShader);
 		glUniformMatrix4fv(glGetUniformLocation(depthMapShader->ProgramID, "model"), 1, GL_FALSE, glm::value_ptr(modelFloorMatrix));
 		floor.draw();
-		gameManager.createShapes(depthMapShader->ProgramID, deltaTime);
+		gameManager.renderShadows(depthMapShader->ProgramID, deltaTime);
 		glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
 		//Clear color and depth buffers
@@ -172,7 +172,7 @@ int main()
 		shaderObject->setMatrix(modelFloorMatrix, "model");
 		floor.setUniforms(shaderObject, cameraPos);
 		floor.draw();
-		gameManager.displayShapeText();
+		//gameManager.displayShapeText();
 		// Send uniforms data to shader
 		if (timer <= 2.0f) {
 			particleShaderObj->Use();
