@@ -62,7 +62,7 @@ void Wall::setUniforms(std::shared_ptr<Shader>& shaderObj, glm::vec3& cameraPos)
 	GLuint specExpoLoc = glGetUniformLocation(programID, "material.shininess");
 	glUniform3f(materialAmbLoc, 0.5f, 0.5f, 0.5f);
 	glUniform3f(materialDiffuseLoc, 0.5f, 0.5f, 0.5f);
-	glUniform3f(materialSpecLoc, 1.0f, 1.0f, 1.0f);
+	glUniform3f(materialSpecLoc, 0.5f, 0.5f, 0.5f);
 	glUniform1f(specExpoLoc, 32.0f);
 }
 void Wall::draw()
