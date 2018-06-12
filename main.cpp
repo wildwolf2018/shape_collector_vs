@@ -113,14 +113,11 @@ int main()
 	modelFloorMatrix = glm::rotate(modelFloorMatrix, glm::radians(-90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
 
 	GLfloat near_plane = 1.0f, far_plane = 500.0f;
-	glm::mat4 lightProjection = glm::ortho(-50.0f, 50.0f, -50.0f, 50.0f, near_plane, far_plane);
-	glm::mat4 lightView = glm::lookAt(glm::vec3(-10.0f, 10.0f, 10.0f), glm::vec3(0.0f), glm::vec3(1.0));//vec3(14.64f, 20.0f, 10.0f),
+	glm::mat4 lightProjection = glm::ortho(-500.0f, 500.0f, -500.0f, 500.0f, near_plane, far_plane);
+	glm::mat4 lightView = glm::lookAt(glm::vec3(-100.0f, 50.0f, 0.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(1.0));//vec3(14.64f, 20.0f, 10.0f),
 	glm::mat4 lightSpaceMatrix = lightProjection * lightView;
 
-	LevelManager gameManager{"arial.ttf"};
-	/*Model* _model = new Model[1];
-	_model->shapeType = Shapes3D::CUBE;
-	_model->loadModel("..\\OpenGlLTest\\triangular_pyramid2.obj");*/
+	LevelManager gameManager{"zorque.ttf"};
 	std::shared_ptr<Shader> shaderObject = ResourceManager::GetShader("model");
 	std::shared_ptr<Shader> depthMapShader = ResourceManager::GetShader("shadow_map");
 	
@@ -172,6 +169,7 @@ int main()
 		shaderObject->setMatrix(modelFloorMatrix, "model");
 		floor.setUniforms(shaderObject, cameraPos);
 		floor.draw();
+		gameManager.displayShapeText();
 		//gameManager.displayShapeText();
 		// Send uniforms data to shader
 		if (timer <= 2.0f) {
