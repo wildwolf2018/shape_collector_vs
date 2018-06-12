@@ -1,7 +1,7 @@
-#include "particle.h"
 #include <chrono>
 #include <random>
 #include <iostream>
+#include "particle.h"
 #include "resource_manager.h"
 
 Particle::Particle(const GLchar* vShader, const  GLchar* fShader, const  GLchar* textureFile, GLint numParticles) :
