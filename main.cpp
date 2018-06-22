@@ -42,7 +42,7 @@ const int WIDTH = 1300;
 const int HEIGHT = 800;
 
 // Camera
-glm::vec3 cameraPos = glm::vec3(0.0f, 0.0f, 300.0f);
+glm::vec3 cameraPos = glm::vec3(3.0f, 0.0f, 55.0f);
 glm::vec3 cameraFront = glm::vec3(0.0f, 0.0f, -1.0f);
 glm::vec3 cameraUp = glm::vec3(0.0f, 1.0f, 0.0f);
 /* Yaw is initialized to -90.0 degrees since a yaw of 0.0 results in a direction vector pointing to the right
@@ -117,16 +117,16 @@ int main()
 	glm::mat4 lightView = glm::lookAt(glm::vec3(-100.0f, 50.0f, 0.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(1.0));//vec3(14.64f, 20.0f, 10.0f),
 	glm::mat4 lightSpaceMatrix = lightProjection * lightView;
 
-	LevelManager gameManager{"zorque.ttf"};
+	LevelManager gameManager{};
 	std::shared_ptr<Shader> shaderObject = ResourceManager::GetShader("model");
 	std::shared_ptr<Shader> depthMapShader = ResourceManager::GetShader("shadow_map");
 	
 	//Particles
-	int numberOfParticles = 100;
-	Particle explosion{ "vshader.txt", "fshader.txt", "red_particle.png", numberOfParticles};
+	/*int numberOfParticles = 100;
+	Particle explosion{ "vshader.txt", "fshader.txt", "red_particle.png", numberOfParticles};*/
 
-	Texture2D particleTexture = ResourceManager::GetTexture("particle");
-	std::shared_ptr<Shader> particleShaderObj = ResourceManager::GetShader("particleShader");
+	/*Texture2D particleTexture = ResourceManager::GetTexture("particle");
+	std::shared_ptr<Shader> particleShaderObj = ResourceManager::GetShader("particleShader");*/
 
 	//Font
 	Font messageText("STENCIL.ttf");
@@ -142,58 +142,48 @@ int main()
 	{
 		glfwPollEvents();
 		do_movement();
-		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-		//Render to the shadow map framebuffer
-		shadowObj.renderToFrameBuffer(lightSpaceMatrix, depthMapShader);
-		glUniformMatrix4fv(glGetUniformLocation(depthMapShader->ProgramID, "model"), 1, GL_FALSE, glm::value_ptr(modelFloorMatrix));
-		floor.draw();
-		gameManager.renderShadows(depthMapShader->ProgramID, deltaTime);
-		glBindFramebuffer(GL_FRAMEBUFFER, 0);
+		gameManager.globalLevelTimer.addTime();
+		if (gameManager.globalLevelTimer.getElapsedTime() > 40.0f)
+			gameManager.currentState = StateMachine::LEVEL_ENDING;
+		if (gameManager.currentState == StateMachine::PLAY) {
+			//Render to the shadow map framebuffer
+			shadowObj.renderToFrameBuffer(lightSpaceMatrix, depthMapShader);
+			glUniformMatrix4fv(glGetUniformLocation(depthMapShader->ProgramID, "model"), 1, GL_FALSE, glm::value_ptr(modelFloorMatrix));
+			floor.draw();
+			if(!gameManager.roundEnding)
+				gameManager.renderShadows(depthMapShader->ProgramID, deltaTime);
+			glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
-		//Clear color and depth buffers
-		glViewport(0, 0, WIDTH, HEIGHT);
-		glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
-		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+			//Clear color and depth buffers
+			glViewport(0, 0, WIDTH, HEIGHT);
+			if (!gameManager.screenFlash)
+				glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
+			else
+				glClearColor(0.93f, 0.93f, 0.93f, 1.0f);
+			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-		////Draw the objects in the scene as normal
-		glDisable(GL_CULL_FACE);
-		shaderObject->Use();
-		shaderObject->setMatrix(projection, "projection");
-		view = glm::lookAt(cameraPos, cameraPos + cameraFront, cameraUp);
-		shaderObject->setMatrix(view, "view");
-		shaderObject->setMatrix(lightSpaceMatrix, "lightSpaceMatrix");
-		glBindTexture(GL_TEXTURE_2D, shadowObj.depthMap);
-		glUniform1i(glGetUniformLocation(shaderObject->ProgramID, "shadowMap"), 0);
+			////Draw the objects in the scene as normal
+			glDisable(GL_CULL_FACE);
+			shaderObject->Use();
+			shaderObject->setMatrix(projection, "projection");
+			view = glm::lookAt(cameraPos, cameraPos + cameraFront, cameraUp);
+			shaderObject->setMatrix(view, "view");
+			shaderObject->setMatrix(lightSpaceMatrix, "lightSpaceMatrix");
+			glBindTexture(GL_TEXTURE_2D, shadowObj.depthMap);
+			glUniform1i(glGetUniformLocation(shaderObject->ProgramID, "shadowMap"), 0);
+		}
 		gameManager.gameLoop();
-		gameManager.drawShapes(shaderObject, cameraPos);
-		shaderObject->setMatrix(modelFloorMatrix, "model");
-		floor.setUniforms(shaderObject, cameraPos);
-		floor.draw();
-		gameManager.displayShapeText();
-		//gameManager.displayShapeText();
-		// Send uniforms data to shader
-		if (timer <= 2.0f) {
-			particleShaderObj->Use();
-			explosion.setUniforms(projection, view, particleShaderObj, timer, deltaTime);
-			explosion.drawParticle();
-			//std::cout << "total time elapsed = " << timer << std::endl;
-			explosion.isAnimPlaying = true;
-		}
-
-		// Calculate deltaTime for next frame
-		if (timer <= 2.5f) {
-			end_ticks = std::chrono::steady_clock::now();
-			std::chrono::duration<double> delta = end_ticks - start_ticks;
-			timer += delta.count();
-			start_ticks = end_ticks;
-		}
-
-		//Display collision message
-		if (timer >= 1.5f && timer <= 2.0f) {
-			glEnable(GL_BLEND); 
-			glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-			messageText.renderCharacters(ResourceManager::GetShader("fontShader"), "Excellent!!!", 250.0f, 300.0f, 1.0f, glm::vec3(1.0f, 0.84f, 0.0f));
-			glDisable(GL_BLEND);
+		if (gameManager.currentState == StateMachine::PLAY) {
+			if(!gameManager.roundEnding)
+				gameManager.drawShapes(shaderObject, cameraPos);
+			shaderObject->setMatrix(modelFloorMatrix, "model");
+			floor.setUniforms(shaderObject, cameraPos);
+			floor.draw();
+			gameManager.applyPhysics(projection, view, cameraPos, deltaTime);
+			gameManager.displayShapeText();
+			gameManager.resultMessage(deltaTime);
+			if (gameManager.roundOver())
+				gameManager.displayRoundEndText();
 		}
 		GLfloat currentFrame = glfwGetTime();
 		deltaTime = currentFrame - lastFrame;
@@ -207,7 +197,9 @@ int main()
 void do_movement()
 {
 	// Camera controls
-	GLfloat cameraSpeed = 20.0f * deltaTime;
+	GLfloat cameraSpeed = 0.0f;
+	if(!Particle::isAnimPlaying)
+		cameraSpeed = 20.0f * deltaTime;
 	if (keys[GLFW_KEY_W])
 		cameraPos += cameraSpeed * cameraFront;
 	if (keys[GLFW_KEY_S])
@@ -290,6 +282,7 @@ GLboolean testCollision(glm::vec3 cameraPosition, glm::vec3 shapeCenterPos)
 	float d = sumOfSquares * sumOfSquares;
 	if (distanceSquared <= d)
 	{
+
 		std::cout << "Collision Detected\n";
 		printf("x = %.1f, y = %.1f, z = %.1f", cameraPosition.x, cameraPosition.y, cameraPosition.z);
 		return true;
