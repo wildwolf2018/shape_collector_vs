@@ -4,21 +4,23 @@
 #include "particle.h"
 #include "resource_manager.h"
 
+GLboolean Particle::isAnimPlaying = false;
+
 Particle::Particle(const GLchar* vShader, const  GLchar* fShader, const  GLchar* textureFile, GLint numParticles) :
-	time{0}, rate{ 0.00075f}, isAnimPlaying{false}, particleSpeed{0.0f}
+	time{0}, rate{ 0.00075f}, particleSpeed{0.0f}
 {
 	ResourceManager::LoadShader(vShader, fShader, "particleShader");
 	ResourceManager::LoadTexture(textureFile, false, "particle");
 	this -> numParticles = numParticles;
 	const  GLint NUM_OF_COMPONENTS = 8;
-	const  GLint PARTICLE_SIZE = numParticles * NUM_OF_COMPONENTS;
-	data = new GLfloat[PARTICLE_SIZE];// array to store particles' data 
+	particleDataSize = numParticles * NUM_OF_COMPONENTS;
+	data = new GLfloat[particleDataSize];// array to store particles' data 
 
 	glGenVertexArrays(1, &particleVAO);
 	glGenBuffers(1, &particleVBO);
 	glBindVertexArray(particleVAO);
 	glBindBuffer(GL_ARRAY_BUFFER, particleVBO);
-	glBufferData(GL_ARRAY_BUFFER, PARTICLE_SIZE * sizeof(GLfloat), NULL, GL_STATIC_DRAW);
+	glBufferData(GL_ARRAY_BUFFER, particleDataSize * sizeof(GLfloat), NULL, GL_DYNAMIC_DRAW);
 	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(GLfloat), (GLvoid*)0);
 	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(GLfloat), (GLvoid*)(numParticles * 3 * sizeof(GLfloat)));
 	glVertexAttribPointer(2, 1, GL_FLOAT, GL_FALSE, sizeof(GLfloat), (GLvoid*)(numParticles * 6 * sizeof(GLfloat)));
@@ -30,10 +32,10 @@ Particle::Particle(const GLchar* vShader, const  GLchar* fShader, const  GLchar*
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 	glBindVertexArray(0);
 
-	initParticles(PARTICLE_SIZE);
+//	initParticles(PARTICLE_SIZE);
 }
 
-GLvoid Particle::initParticles(const  GLint particleDataSize)
+GLvoid Particle::initParticles(glm::vec3& spawnPoint)
 {
 	std::default_random_engine e; // random number engine
 	GLuint seedValue = 0; // random number engine seed
@@ -41,9 +43,9 @@ GLvoid Particle::initParticles(const  GLint particleDataSize)
 	GLuint startTimeOffset = numParticles * 6, lifeTimeOffset = numParticles * 7;
 	for (GLuint i = 0; i < numParticles; i++) {
 		//Store position coordinates of particle
-		data[vertexOffset++] = 0.0f;
-		data[vertexOffset++] = 0.0f;
-		data[vertexOffset++] = 0.0f;
+		data[vertexOffset++] = spawnPoint.x;
+		data[vertexOffset++] = spawnPoint.y;
+		data[vertexOffset++] = spawnPoint.z;
 
 		//Calculate random velocity of particle
 		seedValue = std::chrono::steady_clock::now().time_since_epoch().count() + timeOffset;
@@ -63,7 +65,7 @@ GLvoid Particle::initParticles(const  GLint particleDataSize)
 		data[startTimeOffset++] = time;
 		time += rate;
 		//Store lifeTime of particle
-		data[lifeTimeOffset++] = 2.0f;
+		data[lifeTimeOffset++] = 1.0f;
 		timeOffset += 10;
 	}
 	glBindBuffer(GL_ARRAY_BUFFER, particleVBO);
