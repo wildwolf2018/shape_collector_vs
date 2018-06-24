@@ -25,15 +25,11 @@
 
 using namespace irrklang;
 
-//#include <assimp/Importer.hpp> 
-//#include <assimp/scene.h> 
-//#include <assimp/postprocess.h>
-
 // Function prototypes
 void key_callback(GLFWwindow* window, int key, int scancode, int action, int mode);
 void mouse_callback(GLFWwindow* window, double xpos, double ypos);
 void mouse_cursor_reset(GLFWwindow* window, int entered);
-void do_movement();
+void do_movement(LevelManager &game);
 GLboolean testCollision(glm::vec3 cameraPosition, glm::vec3 shapeCenterPos);
 void setModelMatrix(PositionInfo& spawnPosition, std::vector<glm::mat4>& v);
 
@@ -141,11 +137,13 @@ int main()
 	while (!glfwWindowShouldClose(window)) 
 	{
 		glfwPollEvents();
-		do_movement();
+		do_movement(gameManager);
 		gameManager.globalLevelTimer.addTime();
+		int size = gameManager.completedLevels.size();
+		std::cout << "timer= " << gameManager.globalLevelTimer.getElapsedTime() << std::endl;
 		if (gameManager.globalLevelTimer.getElapsedTime() > 40.0f)
 			gameManager.currentState = StateMachine::LEVEL_ENDING;
-		if (gameManager.currentState == StateMachine::PLAY) {
+		if (gameManager.currentState == StateMachine::PLAY || gameManager.currentState == StateMachine::GAME_OVER) {
 			//Render to the shadow map framebuffer
 			shadowObj.renderToFrameBuffer(lightSpaceMatrix, depthMapShader);
 			glUniformMatrix4fv(glGetUniformLocation(depthMapShader->ProgramID, "model"), 1, GL_FALSE, glm::value_ptr(modelFloorMatrix));
@@ -173,7 +171,7 @@ int main()
 			glUniform1i(glGetUniformLocation(shaderObject->ProgramID, "shadowMap"), 0);
 		}
 		gameManager.gameLoop();
-		if (gameManager.currentState == StateMachine::PLAY) {
+		if (gameManager.currentState == StateMachine::PLAY || gameManager.currentState == StateMachine::GAME_OVER) {
 			if(!gameManager.roundEnding)
 				gameManager.drawShapes(shaderObject, cameraPos);
 			shaderObject->setMatrix(modelFloorMatrix, "model");
@@ -185,6 +183,9 @@ int main()
 			if (gameManager.roundOver())
 				gameManager.displayRoundEndText();
 		}
+		if (gameManager.currentState == StateMachine::GAME_OVER) {
+			gameManager.gameOverReset();
+		}
 		GLfloat currentFrame = glfwGetTime();
 		deltaTime = currentFrame - lastFrame;
 		lastFrame = currentFrame;
@@ -194,7 +195,7 @@ int main()
 	return 0;
 }
 
-void do_movement()
+void do_movement(LevelManager &game)
 {
 	// Camera controls
 	GLfloat cameraSpeed = 0.0f;
@@ -209,6 +210,13 @@ void do_movement()
 	if (keys[GLFW_KEY_D])
 		cameraPos += glm::normalize(glm::cross(cameraFront, cameraUp)) * cameraSpeed;
 	cameraFront.y = 0.0f;
+	//Check if game restart button is pressed
+	if (keys[GLFW_KEY_X] && game.gameOver) {
+		game.roundEnding = false;
+		game.gameOver = false;
+		game.currentState = StateMachine::START;
+		game.totalShapes = 0;
+	}
 	//std::cout << "x = " << cameraPos.x << "  y = " << cameraPos.y << "  z = " << cameraPos.z << std::endl;
 }
 

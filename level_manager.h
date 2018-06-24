@@ -38,15 +38,18 @@ public:
 	GLboolean displayMissionText = false;
 	GLboolean gameOver = false;
 	GLboolean roundEnding = false;
+	int totalShapes;
 	Clock globalLevelTimer;
 	Clock gameClock;
 	Model* modelShapes;
 	Animation animController;
 	StateMachine currentState;
+	std::vector<int>completedLevels;
 	Font *font[2];
 	LevelManager();
 	void renderShadows(GLuint programID, float deltaTime);
 	void reset();
+	void chooseShape();
 	void drawShapes(std::shared_ptr<Shader> shaderObj, glm::vec3 & cameraPos);
 	GLchar *getMissionTarget();
 	void displayShapeText();
@@ -59,16 +62,15 @@ public:
 	void gameLoop();
 	void applyPhysics(glm::mat4& projection, glm::mat4& view, glm::vec3& cameraPos, GLfloat deltaTime);
 	GLboolean isGameOver();
-
 	GLboolean roundOver();
-
+	void gameOverReset();
 	void displayRoundEndText();
 private:
 	Particle* explosion;
 	const GLuint NUM_SHAPES = 30;
 	int numCurrentShape;
-	int totalShapes = 0;
 	const int STOP_COUNT = 6;
+	const int SHAPE_TYPE_COUNT = 2;
 	float maximumHealth = 150.0f;
 	float currentHealth;
 	int blinkingEndCount = 0;

@@ -25,11 +25,12 @@ LevelManager::LevelManager() :animController{ 9 }, particleTimer{}, globalLevelT
 	createShapes();
 	initSpawnPositions();
 	currentState = StateMachine::START;
-	globalLevelTimer.startClock();
+	completedLevels.reserve(10);
 }
 
 void LevelManager::gameLoop()
 {
+	int completedRounds = 0;
 	switch (currentState)
 	{
 	case StateMachine::START:
@@ -40,14 +41,24 @@ void LevelManager::gameLoop()
 		break;
 	case StateMachine::LEVEL_ENDING:
 		globalLevelTimer.stopClock();
-		gameClock.startClock();
-		gameClock.timer = 5.01f;
-		currentState = StateMachine::START;
 		reset();
-		globalLevelTimer.startClock();
+		completedRounds = completedLevels.size();
+		if (completedRounds < SHAPE_TYPE_COUNT) {
+			chooseShape();
+			gameClock.startClock();
+			gameClock.timer = 5.01f;
+			globalLevelTimer.startClock();
+			currentState = StateMachine::START;
+		}
+		else {
+			currentState = StateMachine::GAME_OVER;
+		}	
 		break;
-	default:
-		break;
+	case StateMachine::GAME_OVER:
+		if (completedLevels.size() != 0) {
+			completedLevels.clear();
+			displayMissionText = false;
+		}
 	}
 }
 
@@ -98,7 +109,39 @@ GLboolean LevelManager::roundOver()
 		roundEnding = true;
 		return true;
 	}
+	roundEnding = false;
 	return false;
+}
+
+void LevelManager::gameOverReset()
+{
+	gameOver = true;
+	glEnable(GL_BLEND);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+	glm::vec3 startTextColor(1.0f, 0.0f, 0.0f), posAndScale(220.0f, 300.0f, 1.5f);
+	font[0]->renderCharacters(ResourceManager::GetShader("fontShader"), "GAME OVER",
+		posAndScale.x, posAndScale.y, posAndScale.z, startTextColor);
+	glm::vec3 resultTextColor(0.0f, 1.0f, 0.0f), resultsTextPos(170.0f, 200.0f, 1.0f);
+	std::ostringstream resultsDisplayText;
+	resultsDisplayText << "TOTAL COLLECTION " << totalShapes;
+	std::string totalShapesText{ resultsDisplayText.str() };
+	font[0]->renderCharacters(ResourceManager::GetShader("fontShader"), totalShapesText,
+		resultsTextPos.x, resultsTextPos.y, resultsTextPos.z, resultTextColor);
+	
+	glm::vec3 restartTextColor(1.0f, 1.0f, 1.0f), restartTextPos(10.0f, 20.0f, 0.5f);
+	static Clock startTextTimer{};
+	if (startTextTimer.timer == 0)
+		startTextTimer.startClock();
+	startTextTimer.addTime();
+	float timer = startTextTimer.getElapsedTime();
+	if (timer > 1.0f && timer <= 2.0f) {
+		font[0]->renderCharacters(ResourceManager::GetShader("fontShader"), "Press X to start",
+			restartTextPos.x, restartTextPos.y, restartTextPos.z, restartTextColor);
+	}
+	else if (timer > 2.0f) {
+		startTextTimer.stopClock();
+	}
+	glDisable(GL_BLEND);
 }
 
 void LevelManager::displayRoundEndText()
@@ -354,10 +397,19 @@ void LevelManager::reset()
 	}
 	activeShapes.clear();
 	numCurrentShape = 0;
-	selectedShape = randomInt(0, 9);
 	currentHealth = maximumHealth;
 	blinkingEndCount = 0;
 	roundEnding = false;
+}
+
+void LevelManager::chooseShape()
+{
+	int num = 0;
+	do{
+		selectedShape = randomInt(0, 9);
+		num = std::count(completedLevels.begin(), completedLevels.end(), selectedShape);
+	}while (num != 0);
+	completedLevels.push_back(selectedShape);
 }
 
 void LevelManager::drawShapes(std::shared_ptr<Shader>shaderObject, glm::vec3& cameraPos)
@@ -402,6 +454,7 @@ GLchar* LevelManager::getMissionTarget()
 
 void LevelManager::displayShapeText()
 {
+	if (roundEnding || gameOver)return;
 	std::string shape{""};
 	switch (selectedShape)
 	{
@@ -443,6 +496,7 @@ void LevelManager::resultMessage(GLfloat deltaTime)
 		particleTimer.stopClock();
 		Particle::isAnimPlaying = false;
 	}
+	if(!roundEnding && !gameOver)
 	setHealthSlider(true);
 }
 
@@ -464,8 +518,8 @@ void LevelManager::setHealthSlider(GLboolean start)
 	glScissor(HEALTH_BAR_X, HEALTH_BAR_Y, HEALTH_BAR_WIDTH, HEALTH_BAR_HEIGHT);
 	glClearColor(1.0f, 0.0f, 0.0f, 1.0f);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-	if(!roundEnding)
-		currentHealth -= (drainRate * healthTime);
+	
+	currentHealth -= (drainRate * healthTime);
 	if (currentHealth >= 0.0f)
 	{
 		glScissor(HEALTH_BAR_X, HEALTH_BAR_Y, currentHealth, HEALTH_BAR_HEIGHT);
@@ -481,6 +535,8 @@ void LevelManager::setHealthSlider(GLboolean start)
 
 void LevelManager::start()
 {
+	if (globalLevelTimer.stopTime)
+		globalLevelTimer.startClock();
 	float timer = gameClock.getElapsedTime();
 	if(timer == 0)
 		gameClock.startClock();
@@ -500,7 +556,7 @@ void LevelManager::start()
 	else if (timer >=  6.5f && timer < 8.5f)
 	{
 		if (!displayMissionText) {
-			selectedShape = randomInt(0, 9);
+			chooseShape();
 			displayMissionText = true;
 		}
 		showMissionText();
