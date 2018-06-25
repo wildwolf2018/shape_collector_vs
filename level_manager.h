@@ -39,6 +39,7 @@ public:
 	GLboolean gameOver = false;
 	GLboolean roundEnding = false;
 	int totalShapes;
+	float currentHealth;
 	Clock globalLevelTimer;
 	Clock gameClock;
 	Model* modelShapes;
@@ -72,7 +73,6 @@ private:
 	const int STOP_COUNT = 6;
 	const int SHAPE_TYPE_COUNT = 2;
 	float maximumHealth = 150.0f;
-	float currentHealth;
 	int blinkingEndCount = 0;
 	GLboolean shouldTest = true;
 	Clock particleTimer;

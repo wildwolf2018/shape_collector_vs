@@ -13,7 +13,6 @@ LevelManager::LevelManager() :animController{ 9 }, particleTimer{}, globalLevelT
 	font[0] = new Font("ARCADE.ttf");
 	font[1] = new Font("zorque.ttf");
 	int numberOfParticles = 100;
-	numCurrentShape = 0;
 	totalShapes = 0;
 	currentHealth = maximumHealth;
 	messageRsults[0] = "    EXCELLENT!";
@@ -41,7 +40,6 @@ void LevelManager::gameLoop()
 		break;
 	case StateMachine::LEVEL_ENDING:
 		globalLevelTimer.stopClock();
-		reset();
 		completedRounds = completedLevels.size();
 		if (completedRounds < SHAPE_TYPE_COUNT) {
 			chooseShape();
@@ -55,6 +53,7 @@ void LevelManager::gameLoop()
 		}	
 		break;
 	case StateMachine::GAME_OVER:
+		globalLevelTimer.stopClock();
 		if (completedLevels.size() != 0) {
 			completedLevels.clear();
 			displayMissionText = false;
@@ -169,16 +168,8 @@ void LevelManager::displayRoundEndText()
 void LevelManager::createShapes()
 {
 	constexpr GLuint TOTAL_TYPES = EnumToInt(Shapes3D::T_PYRAMID) + 1;
-	const GLchar* shapes[TOTAL_TYPES] = { "C:\\Users\\Teboho\\Documents\\Projects\\ShapeCollecor_VS\\SOILTest\\OpenGlLTest\\cone2.obj", 
-		"C:\\Users\\Teboho\\Documents\\Projects\\ShapeCollecor_VS\\SOILTest\\OpenGlLTest\\cube2.obj",
-		"C:\\Users\\Teboho\\Documents\\Projects\\ShapeCollecor_VS\\SOILTest\\OpenGlLTest\\cylinder2.obj", 
-		"C:\\Users\\Teboho\\Documents\\Projects\\ShapeCollecor_VS\\SOILTest\\OpenGlLTest\\ellipsoid2.obj", 
-		"C:\\Users\\Teboho\\Documents\\Projects\\ShapeCollecor_VS\\SOILTest\\OpenGlLTest\\hemisphere2.obj",
-		"C:\\Users\\Teboho\\Documents\\Projects\\ShapeCollecor_VS\\SOILTest\\OpenGlLTest\\rectangular_prism2.obj", 
-		"C:\\Users\\Teboho\\Documents\\Projects\\ShapeCollecor_VS\\SOILTest\\OpenGlLTest\\rectangular_pyramid2.obj", 
-		"C:\\Users\\Teboho\\Documents\\Projects\\ShapeCollecor_VS\\SOILTest\\OpenGlLTest\\sphere2.obj",
-		"C:\\Users\\Teboho\\Documents\\Projects\\ShapeCollecor_VS\\SOILTest\\OpenGlLTest\\triangular_prism2.obj",  
-		"C:\\Users\\Teboho\\Documents\\Projects\\ShapeCollecor_VS\\SOILTest\\OpenGlLTest\\triangular_pyramid2.obj"};
+	const GLchar* shapes[TOTAL_TYPES] = { "cone2.obj", "cube2.obj","cylinder2.obj", "ellipsoid2.obj", "hemisphere2.obj","rectangular_prism2.obj", 
+		"rectangular_pyramid2.obj", "sphere2.obj","triangular_prism2.obj", "triangular_pyramid2.obj"};
 	modelShapes = new Model[NUM_SHAPES];
 	GLuint index = 0;
 	for (GLuint i = EnumToInt(Shapes3D::CONE); i < TOTAL_TYPES; ++i) {
@@ -355,6 +346,7 @@ void LevelManager::setModelMatrix(GLuint position, std::list<ActiveShapeProperti
 
 void LevelManager::renderShadows(GLuint programID, float deltaTime)
 {
+
 	auto iter = activeShapes.begin();
 	while (iter != activeShapes.end()) {
 		int index = iter->posIndex;
@@ -395,11 +387,8 @@ void LevelManager::reset()
 		spawnPositions[index].activeObject = nullptr;
 		++iter;
 	}
-	activeShapes.clear();
-	numCurrentShape = 0;
-	currentHealth = maximumHealth;
-	blinkingEndCount = 0;
-	roundEnding = false;
+	if(activeShapes.size() != 0)
+		activeShapes.clear();
 }
 
 void LevelManager::chooseShape()
@@ -414,7 +403,7 @@ void LevelManager::chooseShape()
 
 void LevelManager::drawShapes(std::shared_ptr<Shader>shaderObject, glm::vec3& cameraPos)
 {
-	for (auto iter = activeShapes.begin(); iter != activeShapes.end(); ++iter) {
+	for (auto iter = activeShapes.begin(); iter != activeShapes.end(); ++iter) {		
 		int counter = iter->counter;
 		if (counter >= 0 && counter <= STOP_COUNT)
 		{
@@ -506,7 +495,7 @@ void LevelManager::setHealthSlider(GLboolean start)
 	constexpr float HEALTH_BAR_Y = 714.0f;
 	constexpr float HEALTH_BAR_HEIGHT = 20.0f;
 	constexpr float HEALTH_BAR_WIDTH = 150.0f;
-	float drainRate = 1000.0f / HEALTH_BAR_WIDTH;
+	float drainRate = 5000.0f / HEALTH_BAR_WIDTH;
 	float healthTime = barTimer.getElapsedTime();
 
 	if (start) {
@@ -542,6 +531,7 @@ void LevelManager::start()
 		gameClock.startClock();
 	if (timer <= 5.0f)
 	{
+		totalShapes = 0;
 		glm::vec3 posAndScale(80.0f, 280.0f, 2.0f);
 		glm::vec3 titleColor(102.0f, 0.0f, 0.0f);
 		std::string title{ "THE COLLECTOR" };
@@ -557,12 +547,19 @@ void LevelManager::start()
 	{
 		if (!displayMissionText) {
 			chooseShape();
+			reset();
 			displayMissionText = true;
+			currentHealth = maximumHealth;
+			numCurrentShape = 0;
+			blinkingEndCount = 0;
+			roundEnding = false;
+			gameOver = false;
 		}
 		showMissionText();
 	}
 	else if (timer > 10.0f) {
 		gameClock.stopClock();
+		numCurrentShape = 0;
 		currentState = StateMachine::PLAY;
 	}
 	gameClock.addTime();

@@ -134,13 +134,17 @@ int main()
 	bool drawObj = false;
 	GLuint blinkCount = 0;
 	
-	while (!glfwWindowShouldClose(window)) 
+	while (!glfwWindowShouldClose(window))
 	{
 		glfwPollEvents();
 		do_movement(gameManager);
 		gameManager.globalLevelTimer.addTime();
-		int size = gameManager.completedLevels.size();
-		std::cout << "timer= " << gameManager.globalLevelTimer.getElapsedTime() << std::endl;
+		if (gameManager.currentHealth <= 0.0f) {
+			gameManager.gameOver = true;
+			gameManager.roundEnding = true;
+			gameManager.currentState = StateMachine::GAME_OVER;
+		}
+		//std::cout << "timer= " << gameManager.globalLevelTimer.getElapsedTime() << std::endl;
 		if (gameManager.globalLevelTimer.getElapsedTime() > 40.0f)
 			gameManager.currentState = StateMachine::LEVEL_ENDING;
 		if (gameManager.currentState == StateMachine::PLAY || gameManager.currentState == StateMachine::GAME_OVER) {
@@ -212,10 +216,9 @@ void do_movement(LevelManager &game)
 	cameraFront.y = 0.0f;
 	//Check if game restart button is pressed
 	if (keys[GLFW_KEY_X] && game.gameOver) {
-		game.roundEnding = false;
-		game.gameOver = false;
+		constexpr float PLAYER_MAX_HEALTH = 150.0f;
+		game.currentHealth = PLAYER_MAX_HEALTH;
 		game.currentState = StateMachine::START;
-		game.totalShapes = 0;
 	}
 	//std::cout << "x = " << cameraPos.x << "  y = " << cameraPos.y << "  z = " << cameraPos.z << std::endl;
 }
