@@ -114,20 +114,14 @@ int main()
 	glm::mat4 lightSpaceMatrix = lightProjection * lightView;
 
 	LevelManager gameManager{};
+	ISoundEngine *SoundEngine = createIrrKlangDevice();
+	SoundEngine->setSoundVolume(0.6f);
+	SoundEngine->play2D("haunted-forest.mp3", GL_TRUE);
 	std::shared_ptr<Shader> shaderObject = ResourceManager::GetShader("model");
 	std::shared_ptr<Shader> depthMapShader = ResourceManager::GetShader("shadow_map");
-	
-	//Particles
-	/*int numberOfParticles = 100;
-	Particle explosion{ "vshader.txt", "fshader.txt", "red_particle.png", numberOfParticles};*/
-
-	/*Texture2D particleTexture = ResourceManager::GetTexture("particle");
-	std::shared_ptr<Shader> particleShaderObj = ResourceManager::GetShader("particleShader");*/
 
 	//Font
 	Font messageText("STENCIL.ttf");
-	ISoundEngine *SoundEngine = createIrrKlangDevice();
-	//SoundEngine -> play2D("haunted-forest.mp3", GL_TRUE);
 	start_ticks2 = std::chrono::steady_clock::now();
 	float futureTime = 0.0f, futureTimer2 = 0.0f;
 	bool changeFutureTime = true;
@@ -145,14 +139,16 @@ int main()
 			gameManager.currentState = StateMachine::GAME_OVER;
 		}
 		//std::cout << "timer= " << gameManager.globalLevelTimer.getElapsedTime() << std::endl;
-		if (gameManager.globalLevelTimer.getElapsedTime() > 40.0f)
+		if (gameManager.globalLevelTimer.getElapsedTime() > 40.0f) {
 			gameManager.currentState = StateMachine::LEVEL_ENDING;
+			gameManager.roundEnding = true;
+		}
 		if (gameManager.currentState == StateMachine::PLAY || gameManager.currentState == StateMachine::GAME_OVER) {
 			//Render to the shadow map framebuffer
 			shadowObj.renderToFrameBuffer(lightSpaceMatrix, depthMapShader);
 			glUniformMatrix4fv(glGetUniformLocation(depthMapShader->ProgramID, "model"), 1, GL_FALSE, glm::value_ptr(modelFloorMatrix));
 			floor.draw();
-			if(!gameManager.roundEnding)
+			if(!gameManager.roundEnding && !gameManager.gameOver)
 				gameManager.renderShadows(depthMapShader->ProgramID, deltaTime);
 			glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
@@ -176,7 +172,7 @@ int main()
 		}
 		gameManager.gameLoop();
 		if (gameManager.currentState == StateMachine::PLAY || gameManager.currentState == StateMachine::GAME_OVER) {
-			if(!gameManager.roundEnding)
+			if(!gameManager.roundEnding && !gameManager.gameOver)
 				gameManager.drawShapes(shaderObject, cameraPos);
 			shaderObject->setMatrix(modelFloorMatrix, "model");
 			floor.setUniforms(shaderObject, cameraPos);

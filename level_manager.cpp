@@ -4,14 +4,20 @@
 #include <algorithm>
 #include <sstream>
 #include <string.h>
+#include <irrKlang.h>
 #include "level_manager.h"
 #include "utilities.h"
 #include "resource_manager.h"
+
+using namespace irrklang;
 
 LevelManager::LevelManager() :animController{ 9 }, particleTimer{}, globalLevelTimer{}
 {
 	font[0] = new Font("ARCADE.ttf");
 	font[1] = new Font("zorque.ttf");
+	/*ISoundEngine *SoundEngine = createIrrKlangDevice();
+	SoundEngine->setSoundVolume(1.0f);
+	SoundEngine->play2D("haunted-forest.mp3", GL_TRUE);*/
 	int numberOfParticles = 100;
 	totalShapes = 0;
 	currentHealth = maximumHealth;
@@ -42,10 +48,9 @@ void LevelManager::gameLoop()
 		globalLevelTimer.stopClock();
 		completedRounds = completedLevels.size();
 		if (completedRounds < SHAPE_TYPE_COUNT) {
-			chooseShape();
 			gameClock.startClock();
 			gameClock.timer = 5.01f;
-			globalLevelTimer.startClock();
+			displayMissionText = false;
 			currentState = StateMachine::START;
 		}
 		else {
@@ -67,6 +72,9 @@ void LevelManager::applyPhysics(glm::mat4& projection, glm::mat4& view, glm::vec
 	if ( !Particle::isAnimPlaying && !roundEnding) {
 		result = testCollision(cameraPos);
 		if (std::get<0>(result)) {
+			ISoundEngine *SoundEngine = createIrrKlangDevice();
+			SoundEngine->setSoundVolume(1.0f);
+			SoundEngine->play2D("Bells2.mp3", GL_FALSE);
 			glm::vec3 spawnPoint = std::get<1>(result);
 			explosion->initParticles(spawnPoint);
 			if (std::get<2>(result) == static_cast<Shapes3D>(selectedShape)) {
@@ -385,6 +393,7 @@ void LevelManager::reset()
 	while (iter != activeShapes.end()) {
 		int index = iter->posIndex;
 		spawnPositions[index].activeObject = nullptr;
+
 		++iter;
 	}
 	if(activeShapes.size() != 0)
@@ -399,6 +408,7 @@ void LevelManager::chooseShape()
 		num = std::count(completedLevels.begin(), completedLevels.end(), selectedShape);
 	}while (num != 0);
 	completedLevels.push_back(selectedShape);
+	std::cout << "seleceted = " << selectedShape << std::endl;
 }
 
 void LevelManager::drawShapes(std::shared_ptr<Shader>shaderObject, glm::vec3& cameraPos)
