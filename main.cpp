@@ -112,7 +112,7 @@ int main()
 	LevelManager gameManager{};
 	Canvas *background = gameManager.backfround;
 	
-	std::shared_ptr<Shader> flash = ResourceManager::LoadShader("v_screenFlash.txt", "f_screenFlash.txt", "flash");
+	//std::shared_ptr<Shader> flash = ResourceManager::LoadShader("v_screenFlash.txt", "f_screenFlash.txt", "flash");
 	std::shared_ptr<Shader> shaderObject = ResourceManager::GetShader("model");
 	std::shared_ptr<Shader> depthMapShader = ResourceManager::GetShader("shadow_map");
 	std::shared_ptr<Shader> floorShaderObject = ResourceManager::GetShader("floorShader");
