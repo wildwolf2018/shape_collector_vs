@@ -87,7 +87,7 @@ void Model::setLightUniforms(std::shared_ptr<Shader>& shaderObj, glm::vec3& came
 	glUniform3f(materialAmbLoc, 0.4f, 0.0f, 0.0f);
 	glUniform3f(materialDiffuseLoc, 0.4f, 0.0f, 0.0f);
 	glUniform3f(materialSpecLoc, 0.4f, 0.0f, 0.0f);
-	glUniform1f(specExpoLoc, 32.0f);
+	glUniform1f(specExpoLoc, 32.0f);// 0.4f, 0.0f, 0.0f);
 }
 
 

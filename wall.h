@@ -5,7 +5,6 @@
 #include <vector>
 #include <map>
 #include <glm/glm.hpp>
-#include "mesh.h"
 
 using std::vector;
 using std::map;
@@ -22,16 +21,18 @@ struct Vec3
 class Wall
 {
 public:
-	//std::map<std::string, float> extents;//wall boundaries and centre
+	std::map<std::string, float> extents;//wall boundaries and centre
 	glm::vec3 normal;//wall plane normal
-	Wall(glm::vec3 normal);
-	void setUniforms(std::shared_ptr<Shader>& shaderObj, glm::vec3& cameraPos);
+	Wall(glm::vec3 normal, int type);
+	//set postion of wall in the scene
+	void setWorldPosition(glm::mat4 &model);
+	void findWallExtents();
 	void draw();
 
 private:
-	std::vector<Vec3> vertices;//vertices positions
-	std::vector<Vec3> norms;//vertices normals
-							//std::vector<glm::vec2> textureCoords;//vertices texture coordinates
+	std::vector<glm::vec3> vertices;//vertices positions
+	std::vector<glm::vec3> norms;//vertices normals
+	std::vector<glm::vec2> textureCoords;//vertices texture coordinates
 	GLuint VBO;
 	GLuint VAO;
 };

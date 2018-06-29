@@ -11,13 +11,22 @@
 
 using namespace irrklang;
 
-LevelManager::LevelManager() :animController{ 9 }, particleTimer{}, globalLevelTimer{}
+LevelManager::LevelManager() :animController{ 9 }, particleTimer{}, globalLevelTimer{}, backfround(new Canvas)
 {
+	//font = new Font[2]
 	font[0] = new Font("ARCADE.ttf");
 	font[1] = new Font("zorque.ttf");
-	/*ISoundEngine *SoundEngine = createIrrKlangDevice();
-	SoundEngine->setSoundVolume(1.0f);
-	SoundEngine->play2D("haunted-forest.mp3", GL_TRUE);*/
+	
+	sounds[0] = "Bouncing-Around-Town.mp3";
+	sounds[1] = "haunted-forest.mp3";
+	sounds[2] = "Frantic-Gameplay.mp3";
+	sounds[3] = "Grunge-Street-Game.mp3";
+	sounds[4] = "moment-of-strange.mp3";
+	sounds[5] = "Bells-of-Weirdness.mp3";
+	sounds[6] = "Magical-Day.mp3";
+	sounds[7] = "Techno-Gameplay_Looping.mp3";
+	sounds[8] = "Theyre-Closing-In_Looping.mp3";
+	sounds[9] = "Torment_Looping.mp3";
 	int numberOfParticles = 100;
 	totalShapes = 0;
 	currentHealth = maximumHealth;
@@ -39,30 +48,43 @@ void LevelManager::gameLoop()
 	switch (currentState)
 	{
 	case StateMachine::START:
+		if (playSound) {
+			if (soundIndex > 9)
+				soundIndex = 0;
+			SoundEngine->play2D(sounds[soundIndex], GL_TRUE);
+			playSound = false;
+		}
 		start();
 		break;
 	case StateMachine::PLAY:
+		showIntroText = false;
 		randomSpawnShapes();
 		break;
 	case StateMachine::LEVEL_ENDING:
+		++soundIndex;
 		globalLevelTimer.stopClock();
 		completedRounds = completedLevels.size();
+		std::cout << "rounds = " << completedRounds << std::endl;
 		if (completedRounds < SHAPE_TYPE_COUNT) {
 			gameClock.startClock();
 			gameClock.timer = 5.01f;
 			displayMissionText = false;
 			currentState = StateMachine::START;
+			SoundEngine->stopAllSounds();
+			playSound = true;
 		}
 		else {
 			currentState = StateMachine::GAME_OVER;
 		}	
 		break;
 	case StateMachine::GAME_OVER:
+		SoundEngine->stopAllSounds();
 		globalLevelTimer.stopClock();
 		if (completedLevels.size() != 0) {
 			completedLevels.clear();
 			displayMissionText = false;
 		}
+		playSound = true;
 	}
 }
 
@@ -72,8 +94,6 @@ void LevelManager::applyPhysics(glm::mat4& projection, glm::mat4& view, glm::vec
 	if ( !Particle::isAnimPlaying && !roundEnding) {
 		result = testCollision(cameraPos);
 		if (std::get<0>(result)) {
-			ISoundEngine *SoundEngine = createIrrKlangDevice();
-			SoundEngine->setSoundVolume(1.0f);
 			SoundEngine->play2D("Bells2.mp3", GL_FALSE);
 			glm::vec3 spawnPoint = std::get<1>(result);
 			explosion->initParticles(spawnPoint);
@@ -176,8 +196,9 @@ void LevelManager::displayRoundEndText()
 void LevelManager::createShapes()
 {
 	constexpr GLuint TOTAL_TYPES = EnumToInt(Shapes3D::T_PYRAMID) + 1;
-	const GLchar* shapes[TOTAL_TYPES] = { "cone2.obj", "cube2.obj","cylinder2.obj", "ellipsoid2.obj", "hemisphere2.obj","rectangular_prism2.obj", 
-		"rectangular_pyramid2.obj", "sphere2.obj","triangular_prism2.obj", "triangular_pyramid2.obj"};
+	const GLchar* shapes[TOTAL_TYPES] = { ".//Obj//cone2.obj", ".//Obj//cube2.obj",".//Obj//cylinder2.obj", ".//Obj//ellipsoid2.obj", 
+		".//Obj//hemisphere2.obj",".//Obj//rectangular_prism2.obj",".//Obj//rectangular_pyramid2.obj", ".//Obj//sphere2.obj",
+		".//Obj//triangular_prism2.obj", ".//Obj//triangular_pyramid2.obj"};
 	modelShapes = new Model[NUM_SHAPES];
 	GLuint index = 0;
 	for (GLuint i = EnumToInt(Shapes3D::CONE); i < TOTAL_TYPES; ++i) {
@@ -505,7 +526,7 @@ void LevelManager::setHealthSlider(GLboolean start)
 	constexpr float HEALTH_BAR_Y = 714.0f;
 	constexpr float HEALTH_BAR_HEIGHT = 20.0f;
 	constexpr float HEALTH_BAR_WIDTH = 150.0f;
-	float drainRate = 5000.0f / HEALTH_BAR_WIDTH;
+	float drainRate = 1000.0f / HEALTH_BAR_WIDTH;
 	float healthTime = barTimer.getElapsedTime();
 
 	if (start) {
@@ -537,6 +558,7 @@ void LevelManager::start()
 	if (globalLevelTimer.stopTime)
 		globalLevelTimer.startClock();
 	float timer = gameClock.getElapsedTime();
+	showIntroText = true;
 	if(timer == 0)
 		gameClock.startClock();
 	if (timer <= 5.0f)

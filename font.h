@@ -31,6 +31,7 @@ struct FreeTypeCharacter
 class Font
 {
 	public:
+		Font();
 		Font(const char* name);
 		void loadFont(const char* fontName);
 		void intializeFont();

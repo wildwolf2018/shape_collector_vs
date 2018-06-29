@@ -19,6 +19,8 @@
 #include "font.h"
 #include "particle.h"
 #include "level_manager.h"
+#include "physics.h"
+#include "canvas.h"
 #include <ft2build.h>
 #include FT_FREETYPE_H
 #include <irrKlang.h>
@@ -29,9 +31,7 @@ using namespace irrklang;
 void key_callback(GLFWwindow* window, int key, int scancode, int action, int mode);
 void mouse_callback(GLFWwindow* window, double xpos, double ypos);
 void mouse_cursor_reset(GLFWwindow* window, int entered);
-void do_movement(LevelManager &game);
-GLboolean testCollision(glm::vec3 cameraPosition, glm::vec3 shapeCenterPos);
-void setModelMatrix(PositionInfo& spawnPosition, std::vector<glm::mat4>& v);
+void do_movement(std::shared_ptr<Wall> wall,LevelManager &game);
 
 //Viewport size
 const int WIDTH = 1300;
@@ -53,9 +53,6 @@ bool keys[1024];
 // Deltatime
 GLfloat deltaTime = 0.0f;	// Time between current frame and last frame
 GLfloat lastFrame = 0.0f;  	// Time of last frame
-std::chrono::time_point<std::chrono::steady_clock> start_ticks, end_ticks, start_ticks2, end_ticks2;
-GLfloat timer = 1000.0f;
-GLfloat timer2 = 0.0f;
 GLboolean showObj = true;
 
 int main()
@@ -93,7 +90,6 @@ int main()
 	glEnable(GL_MULTISAMPLE);
 	glEnable(GL_DEPTH_TEST);
 
-	Wall floor{ glm::vec3(0.0f, 0.0f, 1.0f) };
 	Shadow shadowObj{};
 	shadowObj.createDepthMapFrameBuffer();
 
@@ -108,30 +104,25 @@ int main()
 	modelFloorMatrix = glm::scale(modelFloorMatrix, glm::vec3(15.0, 3.0, 60.0));
 	modelFloorMatrix = glm::rotate(modelFloorMatrix, glm::radians(-90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
 
-	GLfloat near_plane = 1.0f, far_plane = 500.0f;
+	GLfloat near_plane = 1.0f, far_plane = 1500.0f;
 	glm::mat4 lightProjection = glm::ortho(-500.0f, 500.0f, -500.0f, 500.0f, near_plane, far_plane);
-	glm::mat4 lightView = glm::lookAt(glm::vec3(-100.0f, 50.0f, 0.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(1.0));//vec3(14.64f, 20.0f, 10.0f),
+	glm::mat4 lightView = glm::lookAt(glm::vec3(-100.0f, 150.0f, 250.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(1.0));//vec3(14.64f, 20.0f, 10.0f),
 	glm::mat4 lightSpaceMatrix = lightProjection * lightView;
 
 	LevelManager gameManager{};
-	ISoundEngine *SoundEngine = createIrrKlangDevice();
-	SoundEngine->setSoundVolume(0.6f);
-	SoundEngine->play2D("haunted-forest.mp3", GL_TRUE);
+	Canvas *background = gameManager.backfround;
+	
+	std::shared_ptr<Shader> flash = ResourceManager::LoadShader("v_screenFlash.txt", "f_screenFlash.txt", "flash");
 	std::shared_ptr<Shader> shaderObject = ResourceManager::GetShader("model");
 	std::shared_ptr<Shader> depthMapShader = ResourceManager::GetShader("shadow_map");
+	std::shared_ptr<Shader> floorShaderObject = ResourceManager::GetShader("floorShader");
 
-	//Font
-	Font messageText("STENCIL.ttf");
-	start_ticks2 = std::chrono::steady_clock::now();
-	float futureTime = 0.0f, futureTimer2 = 0.0f;
-	bool changeFutureTime = true;
-	bool drawObj = false;
-	GLuint blinkCount = 0;
-	
 	while (!glfwWindowShouldClose(window))
 	{
 		glfwPollEvents();
-		do_movement(gameManager);
+		for (int i = 0; i < background->walls.size() - 1; i++) {
+			do_movement(background->walls[i], gameManager);
+		}
 		gameManager.globalLevelTimer.addTime();
 		if (gameManager.currentHealth <= 0.0f) {
 			gameManager.gameOver = true;
@@ -146,18 +137,19 @@ int main()
 		if (gameManager.currentState == StateMachine::PLAY || gameManager.currentState == StateMachine::GAME_OVER) {
 			//Render to the shadow map framebuffer
 			shadowObj.renderToFrameBuffer(lightSpaceMatrix, depthMapShader);
-			glUniformMatrix4fv(glGetUniformLocation(depthMapShader->ProgramID, "model"), 1, GL_FALSE, glm::value_ptr(modelFloorMatrix));
-			floor.draw();
+			glUniformMatrix4fv(glGetUniformLocation(depthMapShader->ProgramID, "model"), 1, GL_FALSE, glm::value_ptr(background->matrices[4]));
+			for (int i = 0; i < background->walls.size() - 1; i++) 
+				(background->walls[4])->draw();
 			if(!gameManager.roundEnding && !gameManager.gameOver)
 				gameManager.renderShadows(depthMapShader->ProgramID, deltaTime);
 			glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
 			//Clear color and depth buffers
 			glViewport(0, 0, WIDTH, HEIGHT);
-			if (!gameManager.screenFlash)
-				glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
+			if (gameManager.screenFlash)
+				glClearColor(63.0f/255.0f, 73.0f/255.0f, 75.0f/255.0f, 0.3f);
 			else
-				glClearColor(0.93f, 0.93f, 0.93f, 1.0f);
+				glClearColor(.0f, 0.0f, 0.0f, 1.0f);
 			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 			////Draw the objects in the scene as normal
@@ -166,18 +158,32 @@ int main()
 			shaderObject->setMatrix(projection, "projection");
 			view = glm::lookAt(cameraPos, cameraPos + cameraFront, cameraUp);
 			shaderObject->setMatrix(view, "view");
-			shaderObject->setMatrix(lightSpaceMatrix, "lightSpaceMatrix");
-			glBindTexture(GL_TEXTURE_2D, shadowObj.depthMap);
-			glUniform1i(glGetUniformLocation(shaderObject->ProgramID, "shadowMap"), 0);
 		}
 		gameManager.gameLoop();
 		if (gameManager.currentState == StateMachine::PLAY || gameManager.currentState == StateMachine::GAME_OVER) {
-			if(!gameManager.roundEnding && !gameManager.gameOver)
+			if (!gameManager.roundEnding && !gameManager.gameOver) {
 				gameManager.drawShapes(shaderObject, cameraPos);
-			shaderObject->setMatrix(modelFloorMatrix, "model");
-			floor.setUniforms(shaderObject, cameraPos);
-			floor.draw();
-			gameManager.applyPhysics(projection, view, cameraPos, deltaTime);
+			}
+			floorShaderObject->Use();
+			floorShaderObject->setMatrix(projection, "projection");
+			floorShaderObject->setMatrix(view, "view");
+			floorShaderObject->setMatrix(background->matrices[4], "model");
+			floorShaderObject->setMatrix(lightSpaceMatrix, "lightSpaceMatrix");
+			glUniform3f(glGetUniformLocation(floorShaderObject->ProgramID, "viewPos"), cameraPos.x, cameraPos.y, cameraPos.z);
+			glUniform3f(glGetUniformLocation(floorShaderObject->ProgramID, "lightPos"), -100.0f, 150.0f, 250.0f);
+			glActiveTexture(GL_TEXTURE0);
+			ResourceManager::GetTexture("floor").Bind();
+			glUniform1i(glGetUniformLocation(floorShaderObject->ProgramID, "diffuseTexture"), 0);
+			glActiveTexture(GL_TEXTURE1);
+			glBindTexture(GL_TEXTURE_2D, shadowObj.depthMap);
+			glUniform1i(glGetUniformLocation(floorShaderObject->ProgramID, "shadowMap"), 1);
+			background->walls[4]->draw();
+			if (!gameManager.screenFlash) {
+				background->render(cameraPos, projection, view);
+				background->renderSkybox(projection, view);
+			}
+			if(gameManager.currentState == StateMachine::PLAY)
+				gameManager.applyPhysics(projection, view, cameraPos, deltaTime);
 			gameManager.displayShapeText();
 			gameManager.resultMessage(deltaTime);
 			if (gameManager.roundOver())
@@ -195,27 +201,57 @@ int main()
 	return 0;
 }
 
-void do_movement(LevelManager &game)
+void do_movement(std::shared_ptr<Wall> wall, LevelManager &game)
 {
 	// Camera controls
 	GLfloat cameraSpeed = 0.0f;
 	if(!Particle::isAnimPlaying)
 		cameraSpeed = 20.0f * deltaTime;
-	if (keys[GLFW_KEY_W])
-		cameraPos += cameraSpeed * cameraFront;
-	if (keys[GLFW_KEY_S])
-		cameraPos -= cameraSpeed * cameraFront;
-	if (keys[GLFW_KEY_A])
-		cameraPos -= glm::normalize(glm::cross(cameraFront, cameraUp)) * cameraSpeed;
-	if (keys[GLFW_KEY_D])
-		cameraPos += glm::normalize(glm::cross(cameraFront, cameraUp)) * cameraSpeed;
-	cameraFront.y = 0.0f;
-	//Check if game restart button is pressed
-	if (keys[GLFW_KEY_X] && game.gameOver) {
-		constexpr float PLAYER_MAX_HEALTH = 150.0f;
-		game.currentHealth = PLAYER_MAX_HEALTH;
-		game.currentState = StateMachine::START;
+	if ((keys[GLFW_KEY_W] && keys[GLFW_KEY_A]) || (keys[GLFW_KEY_W] && keys[GLFW_KEY_D]))return;
+	if ((keys[GLFW_KEY_W] && keys[GLFW_KEY_S]) || (keys[GLFW_KEY_S] && keys[GLFW_KEY_A]))return;
+	if ((keys[GLFW_KEY_S] && keys[GLFW_KEY_D]) || (keys[GLFW_KEY_A] && keys[GLFW_KEY_D]))return;
+	glm::vec3 cameraToWall = glm::vec3(cameraPos.x - (wall->extents).at("centreX"), cameraPos.y - (wall->extents).at("centreY"),
+		cameraPos.z - (wall->extents).at("centreZ"));
+	float frontOrBack = glm::dot(wall->normal, cameraToWall);
+	float bounceSpeed = 2.0f * cameraSpeed;
+	if (!game.showIntroText) {
+		if (keys[GLFW_KEY_W]) {
+			if (!Physics::pointPlaneIntersect(cameraPos, &(wall->extents))) {
+				if (frontOrBack > 0.0f) cameraPos += cameraSpeed * cameraFront;
+			}else {
+				if (frontOrBack < 0.0f) cameraPos += (bounceSpeed *(wall->normal));
+			}
+		}
+		if (keys[GLFW_KEY_S]) {
+			if (!Physics::pointPlaneIntersect(cameraPos, &(wall->extents))) {
+				if (frontOrBack > 0.0f)cameraPos -= cameraSpeed * cameraFront;
+			}else {
+				if (frontOrBack < 0.0f)cameraPos += (bounceSpeed *(wall->normal));
+			}
+		}
+		if (keys[GLFW_KEY_A]) {
+			if (!Physics::pointPlaneIntersect(cameraPos, &(wall->extents))) {
+				if (frontOrBack > 0.0f) cameraPos -= glm::normalize(glm::cross(cameraFront, cameraUp)) * cameraSpeed;
+			}else{
+				if (frontOrBack < 0.0f) cameraPos += (bounceSpeed *(wall->normal));
+			}
+		}
+		if (keys[GLFW_KEY_D]) {
+			if (!Physics::pointPlaneIntersect(cameraPos, &(wall->extents))) {
+				if (frontOrBack > 0.0f) cameraPos += glm::normalize(glm::cross(cameraFront, cameraUp)) * cameraSpeed;
+			}
+			else {
+				if (frontOrBack < 0.0f) cameraPos += (bounceSpeed *(wall->normal));
+			}
+		}
+		//Check if game restart button is pressed
+		if (keys[GLFW_KEY_X] && game.gameOver) {
+			constexpr float PLAYER_MAX_HEALTH = 150.0f;
+			game.currentHealth = PLAYER_MAX_HEALTH;
+			game.currentState = StateMachine::START;
+		}
 	}
+	cameraPos.y = 0.0f;
 	//std::cout << "x = " << cameraPos.x << "  y = " << cameraPos.y << "  z = " << cameraPos.z << std::endl;
 }
 
@@ -278,21 +314,3 @@ void mouse_cursor_reset(GLFWwindow* window, int entered)
 	}
 }
 
-GLboolean testCollision(glm::vec3 cameraPosition, glm::vec3 shapeCenterPos)
-{
-	constexpr float PLAYER_RADIUS = 0.1f;
-	constexpr float OBJ_RADIUS = 3.0f;
-
-	glm::vec3 s = shapeCenterPos - cameraPos;
-	float distanceSquared = glm::dot(s, s);
-	float sumOfSquares = (PLAYER_RADIUS* PLAYER_RADIUS) + (OBJ_RADIUS * OBJ_RADIUS);
-	float d = sumOfSquares * sumOfSquares;
-	if (distanceSquared <= d)
-	{
-
-		std::cout << "Collision Detected\n";
-		printf("x = %.1f, y = %.1f, z = %.1f", cameraPosition.x, cameraPosition.y, cameraPosition.z);
-		return true;
-	}
-	return false;
-}

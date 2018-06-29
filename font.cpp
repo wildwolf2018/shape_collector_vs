@@ -6,6 +6,8 @@
 #include "font.h"
 #include "resource_manager.h"
 
+Font::Font() = default;
+
 Font::Font(const char * name)
 {
 	loadFont(name);

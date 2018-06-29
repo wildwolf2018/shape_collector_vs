@@ -1,17 +1,20 @@
+#define GLEW_STATIC
+#include <GL\glew.h>
 #ifndef LEVEL_MANAGER_H
 #define LEVEL_MANAGER_H
-#include <GL\glew.h>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 #include <map>
 #include <list>
 #include <tuple>
+#include <irrKlang.h>
 #include "model.h"
 #include "animation.h"
 #include "time_clock.h"
 #include "font.h"
 #include "particle.h"
+#include "canvas.h"
 
 struct PositionInfo {
 	glm::vec3 worldPosition;
@@ -26,6 +29,8 @@ struct ActiveShapeProperties {
 	glm::mat4 shapeModelMatrix;
 };
 
+using  namespace irrklang;
+
 enum class StateMachine { START, PLAY, GAME_OVER, LEVEL_ENDING};
 using Collision = std::tuple<GLboolean, glm::vec3, Shapes3D>;
 
@@ -34,19 +39,20 @@ public:
 	std::map<GLuint, PositionInfo> spawnPositions;
 	std::list<ActiveShapeProperties>activeShapes;
 	int selectedShape;
-	GLboolean screenFlash = false;
-	GLboolean displayMissionText = false;
-	GLboolean gameOver = false;
-	GLboolean roundEnding = false;
+	GLboolean screenFlash = false,displayMissionText = false, gameOver = false,roundEnding = false, showIntroText = true;;
 	int totalShapes;
 	float currentHealth;
-	Clock globalLevelTimer;
-	Clock gameClock;
+	Clock globalLevelTimer,gameClock;
 	Model* modelShapes;
 	Animation animController;
 	StateMachine currentState;
 	std::vector<int>completedLevels;
 	Font *font[2];
+	Canvas *backfround;
+	const char *sounds[10];
+	ISoundEngine *SoundEngine = createIrrKlangDevice();
+	GLboolean playSound = true;
+	int soundIndex = 0;
 	LevelManager();
 	void renderShadows(GLuint programID, float deltaTime);
 	void reset();
@@ -71,12 +77,11 @@ private:
 	const GLuint NUM_SHAPES = 30;
 	int numCurrentShape;
 	const int STOP_COUNT = 6;
-	const int SHAPE_TYPE_COUNT = 2;
+	const int SHAPE_TYPE_COUNT = 10;
 	float maximumHealth = 150.0f;
 	int blinkingEndCount = 0;
 	GLboolean shouldTest = true;
-	Clock particleTimer;
-	Clock barTimer;
+	Clock particleTimer, barTimer;
 	std::string messageRsults[5];
 	int messageIndex;
 	void createShapes();
