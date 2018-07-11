@@ -27,4 +27,4 @@ $(SolutionDir)/External Libraries/ASSIMP/Assimp/code/Debug;
 $(SolutionDir)/External Libraries/GLEW/glew-1.5.5/lib;
 $(SolutionDir)/External Libraries/GLEW/glew-1.5.5
 
-The Fonts, Sounds, Shaders, Header Files, Source Files,Textures folders, freetype.dll, freetype.lib, assimp-v140-mt.dll, glew32.lib, glew32s.lib, ikpFlac.dll, ikpMP3.dll, irrKlang.dll and soil2-debug.lib libaries should be placed in the same folder as the .vcxproj file.
+The Fonts, Sounds, Shaders, Header Files, Source Files,Textures folders, freetype.dll, freetype.lib, assimp-v140-mt.dll, glew32.lib, glew32s.lib, ikpFlac.dll, ikpMP3.dll, irrKlang.dll, 03.MemeoryPlayback.ilk and soil2-debug.lib libaries should be placed in the same folder as the .vcxproj file.
